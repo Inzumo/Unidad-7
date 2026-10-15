@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ATLUS — Playable Typographic System</title>
+  <!-- Ruta corregida apuntando a styles.css en la raíz -->
+  <link rel="stylesheet" href="styles.css">
+  
+  <!-- Carga de Librerías -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+</head>
+<body>
+
+  <!-- Interfaz de Usuario -->
+  <header id="ui-container">
+    <div class="brand">
+      <h1>ATLUS</h1>
+      <span>Multiverse Physical System</span>
+    </div>
+
+    <nav id="dimension-selector">
+      <button class="dim-btn active" data-dim="0"><span>[A]</span> P3 Reload</button>
+      <button class="dim-btn" data-dim="1"><span>[T]</span> P4 Golden</button>
+      <button class="dim-btn" data-dim="2"><span>[L]</span> P5 Royal</button>
+      <button class="dim-btn" data-dim="3"><span>[U]</span> Catherine</button>
+      <button class="dim-btn" data-dim="4"><span>[S]</span> Metaphor</button>
+    </nav>
+  </header>
+
+  <!-- Canvas Container -->
+  <main id="canvas-holder"></main>
+
+  <!-- Panel de Objetivo de Juego -->
+  <div id="goal-panel">
+    <h2 id="goal-title">Persona 3: The Dark Hour</h2>
+    <p id="goal-desc">Gravedad cero y estasis. Dispara impulsos con el cursor para colocar la 'A' dentro de la órbita de la Luna Llena.</p>
+  </div>
+
+  <!-- Ruta corregida: main.js está directamente en la raíz, sin la carpeta js/ -->
+  <script src="main.js"></script>
+</body>
+</html>
