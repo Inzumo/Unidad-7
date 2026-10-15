@@ -20,12 +20,6 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    
-    # ⬇️ ESTA LÍNEA INDICA A GITHUB DÓNDE ESTÁN TU PACKAGE.JSON E INDEX.HTML
-    defaults:
-      run:
-        working-directory: ./Unidad-7
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -49,8 +43,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Le indicamos que suba la carpeta dist generada dentro de Unidad-7
-          path: ./Unidad-7/dist
+          path: ./dist
 
       - name: Deploy
         id: deployment
