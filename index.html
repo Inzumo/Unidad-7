@@ -6,50 +6,97 @@
   <title>ATLUS — Multiverse Physical System</title>
   <link rel="stylesheet" href="styles.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/addons/p5.sound.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
 </head>
 <body>
 
-  <!-- UI Superior -->
-  <header id="ui-container">
-    <div class="brand">
+  <!-- ===== PANTALLA DE SELECCIÓN DE MUNDO ===== -->
+  <div id="world-select">
+    <div class="select-brand">
       <h1>ATLUS</h1>
-      <span>Multiverse Physical System</span>
+      <p>Multiverse Physical System</p>
+      <span class="select-hint">Elige un mundo para comenzar</span>
     </div>
 
-    <nav id="dimension-selector">
-      <button class="dim-btn active" data-dim="0"><span>[A]</span> P3 Reload</button>
-      <button class="dim-btn" data-dim="1"><span>[T]</span> P4 Golden</button>
-      <button class="dim-btn" data-dim="2"><span>[L]</span> P5 Royal</button>
-      <button class="dim-btn" data-dim="3"><span>[U]</span> Catherine</button>
-      <button class="dim-btn" data-dim="4"><span>[S]</span> Metaphor</button>
-    </nav>
-  </header>
+    <div class="world-grid">
+      <button class="world-card" data-dim="0">
+        <span class="world-letter">A</span>
+        <span class="world-name">Persona 3</span>
+        <span class="world-sub">The Dark Hour</span>
+        <span class="world-song">Color Your Night</span>
+        <span class="world-color" style="background:#0099ff"></span>
+      </button>
 
-  <!-- Canvas -->
+      <button class="world-card" data-dim="1">
+        <span class="world-letter">T</span>
+        <span class="world-name">Persona 4</span>
+        <span class="world-sub">The TV World</span>
+        <span class="world-song">Specialist</span>
+        <span class="world-color" style="background:#ffcc00"></span>
+      </button>
+
+      <button class="world-card" data-dim="2">
+        <span class="world-letter">L</span>
+        <span class="world-name">Persona 5</span>
+        <span class="world-sub">The Metaverse</span>
+        <span class="world-song">I Believe</span>
+        <span class="world-color" style="background:#ff0033"></span>
+      </button>
+
+      <button class="world-card" data-dim="3">
+        <span class="world-letter">U</span>
+        <span class="world-name">Catherine</span>
+        <span class="world-sub">Tower of Babel</span>
+        <span class="world-song">It's a Golden Show</span>
+        <span class="world-color" style="background:#ff00aa"></span>
+      </button>
+
+      <button class="world-card" data-dim="4">
+        <span class="world-letter">S</span>
+        <span class="world-name">Metaphor</span>
+        <span class="world-sub">Archetype Threads</span>
+        <span class="world-song">Battle Theme</span>
+        <span class="world-color" style="background:#e6b800"></span>
+      </button>
+    </div>
+
+    <div class="select-footer">
+      <span>Cinco mundos. Una palabra. Tu turno.</span>
+    </div>
+  </div>
+
+  <!-- ===== UI DEL JUEGO (oculta al inicio) ===== -->
+  <div id="game-ui" class="hidden">
+
+    <div id="goal-panel">
+      <h2 id="goal-title">Persona 3: The Dark Hour</h2>
+      <p id="goal-desc">Gravedad cero y estasis. Dispara impulsos con el cursor para colocar la 'A' dentro de la órbita de la Luna Llena.</p>
+    </div>
+
+    <div id="word-bar">
+      <span class="word-slot" data-letter="A" data-hint="P3 · The Dark Hour">_</span>
+      <span class="word-slot" data-letter="T" data-hint="P4 · The TV World">_</span>
+      <span class="word-slot" data-letter="L" data-hint="P5 · The Metaverse">_</span>
+      <span class="word-slot" data-letter="U" data-hint="Catherine · Tower of Babel">_</span>
+      <span class="word-slot" data-letter="S" data-hint="Metaphor · Archetype Threads">_</span>
+    </div>
+
+    <div id="world-signature"></div>
+
+    <div id="notification">
+      <div id="notif-title"></div>
+      <div id="notif-sub"></div>
+    </div>
+
+    <button id="back-to-select">← Cambiar mundo</button>
+    <button id="toggle-music">🔊 Música</button>
+
+  </div>
+
+  <!-- ===== CANVAS ===== -->
   <main id="canvas-holder"></main>
 
-  <!-- Panel de objetivo -->
-  <div id="goal-panel">
-    <h2 id="goal-title">Persona 3: The Dark Hour</h2>
-    <p id="goal-desc">Gravedad cero y estasis. Dispara impulsos con el cursor para colocar la 'A' dentro de la órbita de la Luna Llena.</p>
-  </div>
-
-  <!-- Barra de palabra -->
-  <div id="word-bar">
-    <span class="word-slot" data-letter="A">_</span>
-    <span class="word-slot" data-letter="T">_</span>
-    <span class="word-slot" data-letter="L">_</span>
-    <span class="word-slot" data-letter="U">_</span>
-    <span class="word-slot" data-letter="S">_</span>
-  </div>
-
-  <!-- Firma visual del mundo -->
-  <div id="world-signature"></div>
-
-  <!-- Notificación -->
-  <div id="notification"></div>
-
-  <script type="module" src="main.js"></script>
+  <script src="main.js"></script>
 </body>
 </html>
