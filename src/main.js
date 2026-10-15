@@ -1,312 +1,333 @@
-import * as THREE from 'three/webgpu';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import WebGPU from 'three/addons/capabilities/WebGPU.js';
-import './styles.css';
+// ==========================================
+// ATLUS: Multiverse Physical System (p5.js + Matter.js)
+// ==========================================
 
-import { createParameters } from './simulation/parameters.js';
-import { createSimulation } from './simulation/createSimulation.js';
-import { createLabPanel } from './ui/labPanel.js';
+const { Engine, World, Bodies, Body, Constraint, Vector, Composite, Mouse, MouseConstraint } = Matter;
 
-const PARTICLE_COUNT = 131072;
+let engine, world;
+let letters = [];
+let constraints = [];
+let currentDimension = 0;
+let mouseConstraint;
 
-const FADE_OUT_MS = 120;
-const HOLD_MS     = 60;
-const FADE_IN_MS  = 120;
-
-async function main() {
-  const mount = document.querySelector('#app');
-
-  if (!WebGPU.isAvailable()) {
-    mount.appendChild(WebGPU.getErrorMessage());
-    throw new Error('Este proyecto requiere WebGPU para ejecutar compute shaders.');
+// Configuración de los 5 Universos (Dimensiones)
+const DIMENSIONS = [
+  {
+    name: "Persona 3: The Dark Hour",
+    letterTarget: "A",
+    color: "#0099ff",
+    bg: "#050b14",
+    desc: "[A] Estasis y Gravedad Cero: Haz clic para disparar impulsos cinéticos y estabilizar la letra 'A' en la Luna Llena.",
+    gravity: { x: 0, y: 0 },
+    stiffness: 0.01,
+    friction: 0.001
+  },
+  {
+    name: "Persona 4: The TV World",
+    letterTarget: "T",
+    color: "#ffcc00",
+    bg: "#1a1600",
+    desc: "[T] Niebla y Repulsión: El cursor despeja la niebla con una fuerza repulsiva. Empuja la 'T' para sintonizar la verdad.",
+    gravity: { x: 0, y: 0.2 },
+    stiffness: 0.05,
+    friction: 0.05
+  },
+  {
+    name: "Persona 5: Metaverse Rebellion",
+    letterTarget: "L",
+    color: "#ff0033",
+    bg: "#120003",
+    desc: "[L] Resortes y Tensión: Estira y suelta la letra 'L' como una resortera elástica para generar oscilación.",
+    gravity: { x: 0, y: 0.8 },
+    stiffness: 0.15,
+    friction: 0.01
+  },
+  {
+    name: "Catherine: Tower of Babel",
+    letterTarget: "U",
+    color: "#ff00aa",
+    bg: "#14000b",
+    desc: "[U] Bloques y Vértigo: Colisiones rígidas con alto peso. Apila y mantén en equilibrio la letra 'U' sobre la base.",
+    gravity: { x: 0, y: 1.5 },
+    stiffness: 0.8,
+    friction: 0.4
+  },
+  {
+    name: "Metaphor: Archetype Threads",
+    letterTarget: "S",
+    color: "#e6b800",
+    bg: "#0d0c03",
+    desc: "[S] Red de Hilos y Suspensión: Tensión elástica múltiple. Ajusta la red de hilos místico-dorados en baja gravedad.",
+    gravity: { x: 0, y: -0.1 },
+    stiffness: 0.03,
+    friction: 0.02
   }
+];
 
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color('#050607');
+function setup() {
+  let canvas = createCanvas(windowWidth, windowHeight);
+  canvas.parent("canvas-holder");
 
-  const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.05, 100);
-  camera.position.set(0, 0, 11);
+  // Crear motor físico de Matter.js
+  engine = Engine.create();
+  world = engine.world;
 
-  const renderer = new THREE.WebGPURenderer({ antialias: true });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  renderer.setSize(innerWidth, innerHeight);
-  mount.appendChild(renderer.domElement);
-  await renderer.init();
-
-  const orbit = new OrbitControls(camera, renderer.domElement);
-  orbit.enableDamping = true;
-  orbit.target.set(0, 0, 0);
-
-  const params = createParameters();
-  const simulation = createSimulation({ renderer, scene, params, count: PARTICLE_COUNT });
-
-  const attractorHelper = new THREE.Mesh(
-    new THREE.SphereGeometry(0.12, 16, 12),
-    new THREE.MeshBasicMaterial({ color: '#ffffff' })
-  );
-  scene.add(attractorHelper);
-  const axes = new THREE.AxesHelper(1.5);
-  scene.add(axes);
-
-  const pointerNdc = new THREE.Vector2();
-  const raycaster = new THREE.Raycaster();
-  const interactionPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
-  const hit = new THREE.Vector3();
-
-  addEventListener('pointermove', (event) => {
-    pointerNdc.x = (event.clientX / innerWidth) * 2 - 1;
-    pointerNdc.y = -(event.clientY / innerHeight) * 2 + 1;
-    raycaster.setFromCamera(pointerNdc, camera);
-    if (raycaster.ray.intersectPlane(interactionPlane, hit)) {
-      params.attractor.value.copy(hit);
-      attractorHelper.position.copy(hit);
+  // Mouse Constraint para arrastrar cuerpos
+  let canvasMouse = Mouse.create(canvas.elt);
+  canvasMouse.pixelRatio = pixelDensity();
+  mouseConstraint = MouseConstraint.create(engine, {
+    mouse: canvasMouse,
+    constraint: {
+      stiffness: 0.2,
+      render: { visible: false }
     }
   });
+  World.add(world, mouseConstraint);
 
-  let paused = false;
-  let mode = 'LAB';
-  let panel;
-  let transitionId = 0;
+  // Crear los límites de la pantalla (Límites)
+  createBoundaries();
 
-  function applyPresetValues(id) {
-    params.windEnabled.value = 0;
-    params.radialEnabled.value = 0;
-    params.vortexEnabled.value = 0;
-    params.dragEnabled.value = 0;
-    params.spiralEnabled.value = 0;
-    params.wind.value.set(0, 0, 0);
-    params.initialSpeed.value = 0;
+  // Crear las 5 letras de A - T - L - U - S
+  createLetters();
 
-    if (id === 'inertia') {
-      params.initialSpeed.value = 0.8;
-    } else if (id === 'wind') {
-      params.windEnabled.value = 1;
-      params.wind.value.set(1.5, 0, 0);
-    } else if (id === 'attract') {
-      params.radialEnabled.value = 1;
-      params.radialStrength.value = 3.0;
-    } else if (id === 'repel') {
-      params.radialEnabled.value = 1;
-      params.radialStrength.value = -3.0;
-    } else if (id === 'vortex') {
-      params.radialEnabled.value = 1;
-      params.radialStrength.value = 1.0;
-      params.vortexEnabled.value = 1;
-      params.vortexStrength.value = 3.0;
-      params.dragEnabled.value = 1;
-      params.dragCoefficient.value = 0.08;
-    } else if (id === 'spiral') {
-      params.radialEnabled.value = 1;
-      params.radialStrength.value = 2.0;
-      params.spiralEnabled.value = 1;
-      params.spiralStrength.value = 2.5;
-      params.spiralDirection.value = 1;
-      params.dragEnabled.value = 1;
-      params.dragCoefficient.value = 0.05;
+  // Escuchadores de botones de interfaz
+  setupUI();
+
+  // Inicializar la primera dimensión
+  applyDimension(0);
+}
+
+function draw() {
+  background(DIMENSIONS[currentDimension].bg);
+
+  // Actualizar motor físico
+  Engine.update(engine);
+
+  // Efectos visuales específicos de la dimensión activa
+  drawDimensionEffects();
+
+  // Renderizar restricciones (Hilos / Resortes)
+  drawConstraints();
+
+  // Renderizar cada letra de ATLUS
+  for (let l of letters) {
+    l.display();
+  }
+
+  // Interacción específica según dimensión
+  handleInteractiveForces();
+}
+
+// -----------------------------------------------------------------
+// CREACIÓN DE ELEMENTOS FÍSICOS
+// -----------------------------------------------------------------
+
+function createBoundaries() {
+  let thickness = 100;
+  let options = { isStatic: true, friction: 0.5 };
+
+  World.add(world, [
+    Bodies.rectangle(width / 2, height + thickness / 2, width * 2, thickness, options), // Suelo
+    Bodies.rectangle(-thickness / 2, height / 2, thickness, height * 2, options),        // Izquierda
+    Bodies.rectangle(width + thickness / 2, height / 2, thickness, height * 2, options), // Derecha
+    Bodies.rectangle(width / 2, -thickness / 2, width * 2, thickness, options)         // Techo
+  ]);
+}
+
+function createLetters() {
+  const chars = ["A", "T", "L", "U", "S"];
+  const startX = width / 2 - 240;
+  const spacing = 120;
+
+  for (let i = 0; i < chars.length; i++) {
+    let x = startX + i * spacing;
+    let y = height / 2;
+
+    // Cuerpo rectangular como caja de colisión para la letra
+    let body = Bodies.rectangle(x, y, 70, 90, {
+      restitution: 0.6,
+      friction: 0.05,
+      density: 0.002
+    });
+
+    letters.push(new LetterBody(body, chars[i], i));
+    World.add(world, body);
+  }
+}
+
+// Clase para envolver el cuerpo rígido y dibujar la letra
+class LetterBody {
+  constructor(body, char, index) {
+    this.body = body;
+    this.char = char;
+    this.index = index;
+  }
+
+  display() {
+    let pos = this.body.position;
+    let angle = this.body.angle;
+
+    push();
+    translate(pos.x, pos.y);
+    rotate(angle);
+
+    // Resaltar la letra del universo activo
+    let isTarget = (this.index === currentDimension);
+    
+    rectMode(CENTER);
+    strokeWeight(isTarget ? 4 : 2);
+    stroke(isTarget ? "#ffffff" : DIMENSIONS[currentDimension].color);
+    fill(isTarget ? DIMENSIONS[currentDimension].color : "#111116");
+    rect(0, 0, 70, 90, 8);
+
+    // Glifo Tipográfico
+    textAlign(CENTER, CENTER);
+    textSize(52);
+    textFont('Montserrat');
+    fill(isTarget ? "#ffffff" : DIMENSIONS[currentDimension].color);
+    noStroke();
+    text(this.char, 0, -2);
+    pop();
+  }
+}
+
+// -----------------------------------------------------------------
+// LÓGICA DE CAMBIO DE DIMENSIONES Y LEYES FÍSICAS
+// -----------------------------------------------------------------
+
+function applyDimension(index) {
+  currentDimension = index;
+  let dim = DIMENSIONS[index];
+
+  // 1. Cambiar Gravedad Global
+  world.gravity.x = dim.gravity.x;
+  world.gravity.y = dim.gravity.y;
+
+  // 2. Limpiar restricciones anteriores
+  for (let c of constraints) {
+    World.remove(world, c);
+  }
+  constraints = [];
+
+  // 3. Crear restricciones/resortes según la dimensión
+  if (index === 2) { 
+    // Persona 5: Resortera en la letra 'L' (índice 2)
+    let target = letters[2].body;
+    let spring = Constraint.create({
+      pointA: { x: target.position.x, y: target.position.y - 100 },
+      bodyB: target,
+      stiffness: dim.stiffness,
+      damping: 0.05
+    });
+    constraints.push(spring);
+    World.add(world, spring);
+  } else if (index === 4) { 
+    // Metaphor: Red de hilos dorados conectando todas las letras
+    for (let i = 0; i < letters.length - 1; i++) {
+      let thread = Constraint.create({
+        bodyA: letters[i].body,
+        bodyB: letters[i + 1].body,
+        stiffness: dim.stiffness,
+        damping: 0.02
+      });
+      constraints.push(thread);
+      World.add(world, thread);
     }
   }
 
-  function applyPreset(id) {
-    const myId = ++transitionId;
-    const startOpacity = params.globalOpacity.value;
-    const t0 = performance.now();
+  // Actualizar Texto de la Interfaz
+  document.getElementById("goal-title").innerText = dim.name;
+  document.getElementById("goal-title").style.color = dim.color;
+  document.getElementById("goal-panel").style.borderLeftColor = dim.color;
+  document.getElementById("goal-desc").innerText = dim.desc;
+}
 
-    const fadeOut = () => {
-      if (myId !== transitionId) return;
-      const e = performance.now() - t0;
-      const t = Math.min(e / FADE_OUT_MS, 1);
-      params.globalOpacity.value = startOpacity * (1 - t);
-      if (t < 1) requestAnimationFrame(fadeOut);
-      else {
-        applyPresetValues(id);
-        simulation.reset();
+// -----------------------------------------------------------------
+// FUERZAS INTERACTIVAS Y EFECTOS
+// -----------------------------------------------------------------
 
-        const t1 = performance.now();
-        const fadeIn = () => {
-          if (myId !== transitionId) return;
-          const e2 = performance.now() - t1;
-          const tt = Math.min(e2 / FADE_IN_MS, 1);
-          params.globalOpacity.value = tt;
-          if (tt < 1) requestAnimationFrame(fadeIn);
-          else params.globalOpacity.value = 1;
-        };
-        setTimeout(() => requestAnimationFrame(fadeIn), HOLD_MS);
+function handleInteractiveForces() {
+  // Universo P4: Campo de Repulsión al mover el mouse cerca
+  if (currentDimension === 1) {
+    let mouseVec = { x: mouseX, y: mouseY };
+    for (let l of letters) {
+      let d = dist(mouseX, mouseY, l.body.position.x, l.body.position.y);
+      if (d < 150) {
+        let force = Vector.sub(l.body.position, mouseVec);
+        force = Vector.normalise(force);
+        force = Vector.mult(force, 0.005);
+        Body.applyForce(l.body, l.body.position, force);
       }
-    };
-    requestAnimationFrame(fadeOut);
-    panel?.refresh();
-  }
-
-  const keys = {
-    ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false,
-    KeyW: false, KeyS: false,
-    KeyA: false, KeyD: false,
-    KeyQ: false, KeyE: false,
-    KeyF: false, KeyG: false
-  };
-
-  const perfBase = {
-    radialStrength: 1.5,
-    spiralStrength: 1.6,
-    dragCoefficient: 0.12,
-    particleSize: 0.035
-  };
-  const perfRanges = {
-    radialMax: 4.0,
-    spiralMax: 4.0,
-    dragMin: 0.02,
-    dragMax: 0.6,
-    sizeMin: 0.005,
-    sizeMax: 0.12,
-    attractorSpeed: 0.15
-  };
-
-  const approach = (c, t, a = 0.08) => c + (t - c) * a;
-
-  function updatePerformance() {
-    if (mode !== 'PERFORMANCE') return;
-
-    const a = params.attractor.value;
-    if (keys.ArrowUp) a.y += perfRanges.attractorSpeed;
-    if (keys.ArrowDown) a.y -= perfRanges.attractorSpeed;
-    if (keys.ArrowLeft) a.x -= perfRanges.attractorSpeed;
-    if (keys.ArrowRight) a.x += perfRanges.attractorSpeed;
-    attractorHelper.position.copy(a);
-
-    let radialTarget = perfBase.radialStrength;
-    if (keys.KeyW && !keys.KeyS) radialTarget = perfRanges.radialMax;
-    else if (keys.KeyS && !keys.KeyW) radialTarget = -perfRanges.radialMax;
-    params.radialEnabled.value = 1;
-    params.radialStrength.value = approach(params.radialStrength.value, radialTarget, 0.06);
-
-    let spiralTarget = perfBase.spiralStrength;
-    if (keys.KeyA && !keys.KeyD) spiralTarget = perfRanges.spiralMax;
-    else if (keys.KeyD && !keys.KeyA) spiralTarget = -perfRanges.spiralMax;
-    params.spiralEnabled.value = 1;
-    params.spiralStrength.value = approach(params.spiralStrength.value, spiralTarget, 0.07);
-
-    let dragTarget = perfBase.dragCoefficient;
-    if (keys.KeyQ && !keys.KeyE) dragTarget = perfRanges.dragMax;
-    else if (keys.KeyE && !keys.KeyQ) dragTarget = perfRanges.dragMin;
-    params.dragEnabled.value = 1;
-    params.dragCoefficient.value = approach(params.dragCoefficient.value, dragTarget, 0.06);
-
-    if (keys.KeyF) {
-      params.particleSize.value = Math.min(perfRanges.sizeMax, params.particleSize.value + 0.001);
-      panel?.refresh();
-    } else if (keys.KeyG) {
-      params.particleSize.value = Math.max(perfRanges.sizeMin, params.particleSize.value - 0.001);
-      panel?.refresh();
     }
   }
+}
 
-  function setPerformanceNeutral() {
-    params.radialEnabled.value = 1;
-    params.vortexEnabled.value = 1;
-    params.dragEnabled.value = 1;
-    params.spiralEnabled.value = 1;
+function mousePressed() {
+  // Universo P3: Disparo de Impulso Cinético con el Evoker
+  if (currentDimension === 0) {
+    let targetLetter = letters[0].body; // Letra 'A'
+    let mouseVec = { x: mouseX, y: mouseY };
+    let force = Vector.sub(targetLetter.position, mouseVec);
+    force = Vector.normalise(force);
+    force = Vector.mult(force, 0.08);
+    Body.applyForce(targetLetter, targetLetter.position, force);
+  }
+}
 
-    params.radialStrength.value = perfBase.radialStrength;
-    params.spiralStrength.value = perfBase.spiralStrength;
-    params.dragCoefficient.value = perfBase.dragCoefficient;
-    params.spiralDirection.value = 1;
-
-    Object.keys(keys).forEach((k) => (keys[k] = false));
+function drawDimensionEffects() {
+  push();
+  // P3: Dibujar objetivo de la Luna Llena
+  if (currentDimension === 0) {
+    noFill();
+    stroke("#0099ff");
+    strokeWeight(2);
+    drawingContext.setLineDash([6, 6]);
+    ellipse(width / 2 - 240, height / 2, 140, 140);
   }
 
-  const hud = document.createElement('div');
-  hud.className = 'hud';
-  document.body.append(hud);
+  // P4: Campo de Visión / Luz de las Gafas
+  if (currentDimension === 1) {
+    noStroke();
+    fill(255, 204, 0, 30);
+    ellipse(mouseX, mouseY, 300, 300);
+  }
+  pop();
+}
 
-  const setMode = (next) => {
-    mode = next;
-    const lab = mode === 'LAB';
-    panel.setVisible(lab);
-    axes.visible = lab;
-    attractorHelper.visible = lab;
-    hud.innerHTML = lab
-      ? '<strong>LAB</strong> · P: performance · R: reset · 1–6: pruebas'
-      : `<strong>PERFORMANCE</strong><br>
-         mouse / flechas · mover atractor<br>
-         W/S · tensión radial &nbsp;&nbsp; A/D · espiral<br>
-         Q/E · drag &nbsp;&nbsp; F/G · tamaño<br>
-         espacio · invertir espiral &nbsp;&nbsp; R · reset &nbsp;&nbsp; P · LAB`;
-  };
+function drawConstraints() {
+  push();
+  stroke(DIMENSIONS[currentDimension].color);
+  strokeWeight(2);
+  for (let c of constraints) {
+    let posA = c.pointA;
+    let posB = c.bodyB ? c.bodyB.position : c.pointB;
 
-  panel = createLabPanel({
-    params,
-    onReset: () => applyPreset('attract'),
-    onPreset: applyPreset,
-    onModeChange: () => setMode(mode === 'LAB' ? 'PERFORMANCE' : 'LAB'),
-    onPauseChange: () => (paused = !paused)
-  });
+    if (c.bodyA) posA = c.bodyA.position;
 
-  setMode('LAB');
+    line(posA.x, posA.y, posB.x, posB.y);
+  }
+  pop();
+}
 
-  addEventListener('keydown', (event) => {
-    if (event.code in keys) {
-      keys[event.code] = true;
-      event.preventDefault();
-      return;
-    }
+// -----------------------------------------------------------------
+// EVENTOS Y NAVEGACIÓN DE LA UI
+// -----------------------------------------------------------------
 
-    if (event.code === 'KeyP') {
-      setMode(mode === 'LAB' ? 'PERFORMANCE' : 'LAB');
-      if (mode === 'PERFORMANCE') setPerformanceNeutral();
-      return;
-    }
+function setupUI() {
+  const buttons = document.querySelectorAll(".dim-btn");
+  buttons.forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      buttons.forEach(b => b.classList.remove("active"));
+      
+      let targetBtn = e.target.closest(".dim-btn");
+      targetBtn.classList.add("active");
 
-    if (event.code === 'KeyR') {
-      applyPreset('attract');
-      if (mode === 'PERFORMANCE') setPerformanceNeutral();
-      return;
-    }
-
-    if (event.code === 'Space') {
-      event.preventDefault();
-      params.spiralDirection.value = -params.spiralDirection.value;
-      return;
-    }
-
-    if (mode === 'LAB' && !event.repeat) {
-      if (event.code === 'Digit1') applyPreset('inertia');
-      if (event.code === 'Digit2') applyPreset('wind');
-      if (event.code === 'Digit3') applyPreset('attract');
-      if (event.code === 'Digit4') applyPreset('repel');
-      if (event.code === 'Digit5') applyPreset('vortex');
-      if (event.code === 'Digit6') applyPreset('spiral');
-    }
-  });
-
-  addEventListener('keyup', (event) => {
-    if (event.code in keys) {
-      keys[event.code] = false;
-      event.preventDefault();
-    }
-  });
-
-  addEventListener('resize', () => {
-    camera.aspect = innerWidth / innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(innerWidth, innerHeight);
-  });
-
-  simulation.reset();
-
-  renderer.setAnimationLoop(() => {
-    if (!paused) {
-      updatePerformance();
-      simulation.stepSimulation();
-    }
-    orbit.update();
-    renderer.render(scene, camera);
+      let dimIndex = parseInt(targetBtn.getAttribute("data-dim"));
+      applyDimension(dimIndex);
+    });
   });
 }
 
-main().catch((error) => {
-  console.error(error);
-  const pre = document.createElement('pre');
-  pre.style.cssText = 'position:fixed;inset:16px;white-space:pre-wrap;color:#fff;z-index:50';
-  pre.textContent = String(error?.stack || error);
-  document.body.append(pre);
-});
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+}
