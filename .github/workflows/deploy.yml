@@ -20,26 +20,41 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    
+    # ⬇️ ESTA LÍNEA INDICA A GITHUB DÓNDE ESTÁN TU PACKAGE.JSON E INDEX.HTML
+    defaults:
+      run:
+        working-directory: ./Unidad-7
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+          # Le decimos a Node dónde buscar el package-lock.json para el cache
+          cache-dependency-path: ./Unidad-7/package-lock.json
+
       - name: Install
         run: npm install
+
       - name: Build
         run: npm run build
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
         with:
           enablement: true
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./dist
+          # Le indicamos que suba la carpeta dist generada dentro de Unidad-7
+          path: ./Unidad-7/dist
+
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
