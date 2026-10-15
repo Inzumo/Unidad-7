@@ -34,9 +34,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          # Le decimos a Node dónde buscar el package-lock.json para el cache
-          cache-dependency-path: ./Unidad-7/package-lock.json
 
       - name: Install
         run: npm install
