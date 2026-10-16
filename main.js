@@ -1,5 +1,5 @@
 // ==========================================
-// ATLUS: Multiverse Physical System — v8
+// ATLUS: Multiverse Physical System — v8.1
 // ==========================================
 
 const { Engine, World, Bodies, Body, Constraint, Vector, Mouse, MouseConstraint } = Matter;
@@ -680,7 +680,7 @@ function drawEscapeZone() {
 }
 
 // ==========================================
-// CATHERINE — REESCRITO DESDE CERO
+// CATHERINE
 // ==========================================
 function initCatherine() {
   catherineState.cellSize = 55;
@@ -698,12 +698,10 @@ function initCatherine() {
     }
   }
 
-  // Piso
   for (let c = 0; c < catherineState.cols; c++) {
     catherineState.grid[c][catherineState.rows - 1] = 'floor';
   }
 
-  // Letra abajo centro
   catherineState.letterCol = 4;
   catherineState.letterRow = catherineState.rows - 2;
   catherineState.grid[4][catherineState.rows - 2] = 'letter';
@@ -810,6 +808,7 @@ function moveCatherineLetterDown() {
 }
 
 function spawnCatherineBlock() {
+  // Columnas disponibles: la fila 0 debe estar libre
   let cols = [];
   for (let c = 0; c < catherineState.cols; c++) {
     if (catherineState.grid[c][0] === null) cols.push(c);
@@ -818,8 +817,9 @@ function spawnCatherineBlock() {
 
   let col = cols[floor(random(cols.length))];
 
+  // FIX: buscar la fila más baja LIBRE sin tocar el piso (rows-1)
   let targetRow = -1;
-  for (let r = catherineState.rows - 1; r >= 0; r--) {
+  for (let r = catherineState.rows - 2; r >= 0; r--) {
     if (catherineState.grid[col][r] === null) {
       targetRow = r;
     } else {
@@ -842,7 +842,6 @@ function drawCatherineTower() {
   const ox = catherineState.offsetX;
   const oy = catherineState.offsetY;
 
-  // Marco
   push();
   noStroke();
   fill(20, 0, 15, 220);
@@ -853,7 +852,6 @@ function drawCatherineTower() {
   rect(ox - 10, oy - 10, catherineState.cols * cs + 20, catherineState.rows * cs + 20, 8);
   pop();
 
-  // Cuadrícula
   push();
   for (let c = 0; c < catherineState.cols; c++) {
     for (let r = 0; r < catherineState.rows; r++) {
@@ -865,7 +863,6 @@ function drawCatherineTower() {
   }
   pop();
 
-  // Celdas
   push();
   for (let c = 0; c < catherineState.cols; c++) {
     for (let r = 0; r < catherineState.rows; r++) {
@@ -909,7 +906,6 @@ function drawCatherineTower() {
   }
   pop();
 
-  // Bloques cayendo
   push();
   for (let b of catherineState.fallingBlocks) {
     let x = ox + b.col * cs;
@@ -924,7 +920,6 @@ function drawCatherineTower() {
   }
   pop();
 
-  // Instrucciones
   push();
   fill(255, 0, 170, 220);
   noStroke();
@@ -934,7 +929,6 @@ function drawCatherineTower() {
   text("← →  mover     ↑ subir     ↓ bajar", width / 2, oy + catherineState.rows * cs + 40);
   pop();
 
-  // Game Over
   if (catherineState.gameOver) {
     push();
     fill(255, 0, 51, 150);
@@ -951,7 +945,6 @@ function drawCatherineTower() {
     pop();
   }
 
-  // HUD
   document.getElementById('cath-height').textContent =
     `ALTURA: ${catherineState.maxHeightReached} / ${catherineState.rows - 3}`;
 }
