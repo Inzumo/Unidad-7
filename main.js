@@ -1,5 +1,5 @@
 // ==========================================
-// ATLUS: Multiverse Physical System — v7
+// ATLUS: Multiverse Physical System — v8
 // ==========================================
 
 const { Engine, World, Bodies, Body, Constraint, Vector, Mouse, MouseConstraint } = Matter;
@@ -40,7 +40,7 @@ const DIMENSIONS = [
     phrases: ["You'll never see it coming", "Take your heart", "Wake up, get up, get out there", "Are you free?", "Steal back your future"],
     winCondition: "reachEscape", music: "music/p5.mp3" },
   { name: "Mundo 04 · Tower of Babel", letterTarget: "U", color: "#ff00aa", bg: "#14000b",
-    desc: "Sube la torre: mueve la letra con ← → y súbela con ESPACIO. Los bloques caen y empujan todo hacia arriba.",
+    desc: "Sube la torre: mueve la letra con ← → y súbela con ESPACIO. No dejes que un bloque caiga encima.",
     gravity: { x: 0, y: 0 },
     phrases: ["It's a nightmare", "Don't look down", "Love is over", "What do you desire?", "Will you climb?"],
     winCondition: "stackTower", music: "music/catherine.mp3" },
@@ -75,7 +75,7 @@ const TV_COOLDOWN = 500;
 let mementosWalls = [];
 let escapeZone = { x: 0, y: 0, w: 220, h: 160 };
 
-// Catherine — Tower
+// Catherine
 let catherineState = {
   cellSize: 60,
   cols: 9,
@@ -89,7 +89,9 @@ let catherineState = {
   moveCooldown: 0,
   spawnInterval: 2400,
   lastSpawn: 0,
-  maxHeightReached: 0
+  maxHeightReached: 0,
+  gameOver: false,
+  gameOverTimer: 0
 };
 
 // Metaphor — Battle
@@ -193,6 +195,22 @@ function setupWorldSelect() {
     setTimeout(() => selectScreen.classList.remove('fade-out'), 50);
     gameUI.classList.add('hidden');
   });
+
+  // Teclado global (Catherine y Metaphor)
+  window.addEventListener('keydown', (e) => {
+    if (!gameState.started) return;
+    if (gameState.currentDimension === 3) {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        moveCatherineLetterUp();
+      }
+    }
+    if (gameState.currentDimension === 4) {
+      if (e.key === 'r' && metaphorBattle.phase === 'defeat') {
+        initMetaphorBattle();
+      }
+    }
+  });
 }
 
 function resetWorld() {
@@ -215,6 +233,7 @@ function resetWorld() {
   metaphorBattle.active = false;
   catherineState.grid = [];
   catherineState.fallingBlocks = [];
+  catherineState.gameOver = false;
   document.getElementById('p4-hud').classList.add('hidden');
   document.getElementById('catherine-hud').classList.add('hidden');
 }
@@ -437,7 +456,6 @@ function drawShadows() {
     s.pulse += 0.05;
     let pl = sin(s.pulse) * 5;
 
-    // Estela
     for (let t = 1; t <= 5; t++) {
       let pastAngle = s.angle - s.orbitSpeed * t * 8;
       let px = centerX + cos(pastAngle) * s.dist;
@@ -447,18 +465,15 @@ function drawShadows() {
       ellipse(px, py, s.r * 2 - t * 8, s.r * 2 - t * 8);
     }
 
-    // Cuerpo
     fill(0, 0, 0, 220);
     noStroke();
     ellipse(s.x, s.y, s.r * 2 + pl, s.r * 2 + pl);
 
-    // Aura roja pulsante
     noFill();
     stroke(255, 0, 51, 180 + sin(s.pulse * 2) * 75);
     strokeWeight(2);
     ellipse(s.x, s.y, s.r * 2 + 14 + pl, s.r * 2 + 14 + pl);
 
-    // Ojos con glow
     fill(255, 0, 51);
     noStroke();
     ellipse(s.x - 8, s.y - 4, 7, 9);
@@ -469,17 +484,16 @@ function drawShadows() {
   }
   pop();
 
-  // HUD sombras
   push();
   textAlign(CENTER, CENTER);
   textFont('Montserrat');
   textSize(18);
   fill(0, 153, 255, 200);
   noStroke();
-  text(`SOMBRAS  ${shadowsKilled} / ${TOTAL_SHADOWS}`, width / 2, 155);
+  text(`SOMBRAS  ${shadowsKilled} / ${TOTAL_SHADOWS}`, width / 2, 255);
   stroke(0, 153, 255, 100);
   strokeWeight(1);
-  line(width / 2 - 80, 175, width / 2 + 80, 175);
+  line(width / 2 - 80, 275, width / 2 + 80, 275);
   pop();
 }
 
@@ -541,7 +555,7 @@ function shootAtShadow() {
 function setupTVs() {
   TVS = [];
   const padX = 220;
-  const padTop = 180;
+  const padTop = 260;
   const yBottom = height - 420;
   TVS.push({ x: padX, y: padTop, r: 80 });
   TVS.push({ x: width - padX, y: padTop, r: 80 });
@@ -596,15 +610,15 @@ function drawTVWorld() {
     push();
     noStroke();
     fill(255, 0, 51, 220);
-    rect(width / 2 - 100, 180, 200 * cdRatio, 8, 4);
+    rect(width / 2 - 100, 300, 200 * cdRatio, 8, 4);
     noFill();
     stroke(255, 0, 51, 200);
     strokeWeight(1);
-    rect(width / 2 - 100, 180, 200, 8, 4);
+    rect(width / 2 - 100, 300, 200, 8, 4);
     fill(255, 0, 51, 200);
     textAlign(CENTER, CENTER);
     textSize(10);
-    text("COOLDOWN", width / 2, 165);
+    text("COOLDOWN", width / 2, 285);
     pop();
   }
 
@@ -638,13 +652,13 @@ function buildMementosLabyrinth() {
   const opts = { isStatic: true, friction: 0.3 };
   const w = width, h = height;
   const walls = [
-    Bodies.rectangle(w * 0.35, h * 0.22, w * 0.5, t, opts),
-    Bodies.rectangle(w * 0.10, h * 0.40, t, h * 0.3, opts),
-    Bodies.rectangle(w * 0.65, h * 0.48, w * 0.5, t, opts),
-    Bodies.rectangle(w * 0.90, h * 0.40, t, h * 0.28, opts),
-    Bodies.rectangle(w * 0.35, h * 0.70, w * 0.5, t, opts),
-    Bodies.rectangle(w * 0.10, h * 0.85, t, h * 0.2, opts),
-    Bodies.rectangle(w * 0.55, h * 0.88, w * 0.3, t, opts)
+    Bodies.rectangle(w * 0.35, h * 0.30, w * 0.5, t, opts),
+    Bodies.rectangle(w * 0.10, h * 0.48, t, h * 0.3, opts),
+    Bodies.rectangle(w * 0.65, h * 0.55, w * 0.5, t, opts),
+    Bodies.rectangle(w * 0.90, h * 0.48, t, h * 0.28, opts),
+    Bodies.rectangle(w * 0.35, h * 0.75, w * 0.5, t, opts),
+    Bodies.rectangle(w * 0.10, h * 0.88, t, h * 0.2, opts),
+    Bodies.rectangle(w * 0.55, h * 0.90, w * 0.3, t, opts)
   ];
   for (let wall of walls) { World.add(world, wall); mementosWalls.push(wall); }
 }
@@ -715,9 +729,11 @@ function initCatherine() {
 
   catherineState.fallingBlocks = [];
   catherineState.lastSpawn = millis();
-  catherineState.spawnInterval = 2200;
+  catherineState.spawnInterval = 2400;
   catherineState.moveCooldown = 0;
   catherineState.maxHeightReached = 0;
+  catherineState.gameOver = false;
+  catherineState.gameOverTimer = 0;
 }
 
 function updateCatherine(dt) {
@@ -733,9 +749,17 @@ function updateCatherine(dt) {
     }
   }
 
+  // Actualizar bloques cayendo
   for (let b of catherineState.fallingBlocks) {
     b.y += b.speed;
     if (b.y >= b.targetY) {
+      // ¿Cae sobre la letra? → GAME OVER
+      if (catherineState.grid[b.col][b.row] === 'letter') {
+        catherineState.gameOver = true;
+        catherineState.gameOverTimer = 90;
+        b.done = true;
+        continue;
+      }
       if (catherineState.grid[b.col][b.row] === null) {
         catherineState.grid[b.col][b.row] = 'block';
       }
@@ -744,12 +768,23 @@ function updateCatherine(dt) {
   }
   catherineState.fallingBlocks = catherineState.fallingBlocks.filter(b => !b.done);
 
+  // Timer de game over
+  if (catherineState.gameOver) {
+    catherineState.gameOverTimer--;
+    if (catherineState.gameOverTimer <= 0) {
+      initCatherine();
+    }
+    return;
+  }
+
+  // Spawn
   if (millis() - catherineState.lastSpawn > catherineState.spawnInterval) {
     spawnCatherineBlock();
     catherineState.lastSpawn = millis();
     catherineState.spawnInterval = max(900, catherineState.spawnInterval - 80);
   }
 
+  // Auto-subida
   let belowRow = catherineState.letterRow + 1;
   if (belowRow < catherineState.rows &&
       catherineState.grid[catherineState.letterCol][belowRow] === 'block') {
@@ -762,6 +797,7 @@ function updateCatherine(dt) {
     }
   }
 
+  // Victoria
   if (catherineState.letterRow <= 1 && !gameState.foundLetters['U']) {
     sealLetter('U');
   }
@@ -777,25 +813,47 @@ function moveCatherineLetter(dir) {
 }
 
 function moveCatherineLetterUp() {
+  if (catherineState.gameOver) return;
   let newRow = catherineState.letterRow - 1;
   if (newRow < 0) return;
   let belowRow = catherineState.letterRow + 1;
   if (belowRow >= catherineState.rows) return;
-  if (catherineState.grid[catherineState.letterCol][belowRow] !== 'block') return;
+  let belowCell = catherineState.grid[catherineState.letterCol][belowRow];
+  if (belowCell !== 'block' && belowCell !== 'floor') return;
   if (catherineState.grid[catherineState.letterCol][newRow] !== null) return;
+
   catherineState.grid[catherineState.letterCol][catherineState.letterRow] = null;
   catherineState.letterRow = newRow;
   catherineState.grid[catherineState.letterCol][catherineState.letterRow] = 'letter';
+  catherineState.maxHeightReached = max(catherineState.maxHeightReached, catherineState.rows - catherineState.letterRow);
+
+  for (let i = 0; i < 15; i++) {
+    particles.push({
+      type: 'rune',
+      pos: {
+        x: catherineState.offsetX + catherineState.letterCol * catherineState.cellSize + catherineState.cellSize / 2,
+        y: catherineState.offsetY + catherineState.letterRow * catherineState.cellSize + catherineState.cellSize / 2
+      },
+      vel: { x: random(-2, 2), y: random(-3, -1) },
+      life: 40,
+      char: random(["✦", "◆", "✧"])
+    });
+  }
 }
 
 function spawnCatherineBlock() {
-  // Elige una columna al azar
-  let col = floor(random(catherineState.cols));
-  // La fila objetivo: la más baja disponible en esa columna
+  let availableCols = [];
+  for (let c = 0; c < catherineState.cols; c++) {
+    if (catherineState.grid[c][0] === null) availableCols.push(c);
+  }
+  if (availableCols.length === 0) return;
+  let col = random(availableCols);
+
   let targetRow = -1;
   for (let r = catherineState.rows - 1; r >= 0; r--) {
-    if (catherineState.grid[col][r] === null) { targetRow = r; break; }
-    if (catherineState.grid[col][r] === 'letter') { targetRow = r - 1; break; }
+    let cell = catherineState.grid[col][r];
+    if (cell === null) { targetRow = r; }
+    else break;
   }
   if (targetRow < 0) return;
 
@@ -814,7 +872,6 @@ function drawCatherineTower() {
   const ox = catherineState.offsetX;
   const oy = catherineState.offsetY;
 
-  // Fondo tablero con glow
   push();
   rectMode(CORNER);
   noStroke();
@@ -826,7 +883,6 @@ function drawCatherineTower() {
   rect(ox - 10, oy - 10, catherineState.cols * cs + 20, catherineState.rows * cs + 20, 8);
   pop();
 
-  // Grid
   push();
   for (let c = 0; c < catherineState.cols; c++) {
     for (let r = 0; r < catherineState.rows; r++) {
@@ -839,7 +895,6 @@ function drawCatherineTower() {
     }
   }
 
-  // Bloques y letra
   for (let c = 0; c < catherineState.cols; c++) {
     for (let r = 0; r < catherineState.rows; r++) {
       let cell = catherineState.grid[c][r];
@@ -881,7 +936,6 @@ function drawCatherineTower() {
     }
   }
 
-  // Bloques cayendo
   for (let b of catherineState.fallingBlocks) {
     let x = ox + b.col * cs;
     let y = b.y;
@@ -895,7 +949,6 @@ function drawCatherineTower() {
   }
   pop();
 
-  // Flechas indicadoras
   push();
   fill(255, 0, 170, 220);
   noStroke();
@@ -904,6 +957,22 @@ function drawCatherineTower() {
   textFont('JetBrains Mono');
   text("← →  mover     ESPACIO  subir", width / 2, oy + catherineState.rows * cs + 40);
   pop();
+
+  if (catherineState.gameOver) {
+    push();
+    fill(255, 0, 51, 150);
+    noStroke();
+    rect(0, 0, width, height);
+    textAlign(CENTER, CENTER);
+    textFont('Montserrat');
+    textSize(72);
+    fill(255);
+    text("¡APLASTADO!", width / 2, height / 2 - 40);
+    textSize(20);
+    fill(255, 220, 100);
+    text("Reiniciando torre...", width / 2, height / 2 + 40);
+    pop();
+  }
 
   document.getElementById('cath-height').textContent =
     `ALTURA: ${catherineState.maxHeightReached} / ${catherineState.rows - 2}`;
@@ -915,12 +984,9 @@ function drawCatherineTower() {
 function initMetaphorBattle() {
   metaphorBattle = {
     active: true,
-    playerHP: 100,
-    playerMaxHP: 100,
-    potions: 2,
-    turn: 0,
-    turnIcons: 1,
-    maxTurnIcons: 2,
+    playerHP: 100, playerMaxHP: 100,
+    potions: 2, turn: 0,
+    turnIcons: 1, maxTurnIcons: 2,
     phase: 'player',
     boss: {
       hp: 100, maxHp: 100,
@@ -955,7 +1021,6 @@ function drawMetaphorBattle() {
     });
   }
 
-  // Círculo mágico
   push();
   let circleR = 200 + sin(frameCount * 0.03) * 8;
   for (let i = 0; i < 3; i++) {
@@ -1060,14 +1125,12 @@ function drawHomoGorleo(cx, cy) {
   push();
   translate(cx, cy);
 
-  // Aura oscura
   for (let i = 0; i < 3; i++) {
     fill(120, 60, 150, 15 - i * 4);
     noStroke();
     ellipse(0, 0, 200 + i * 40, 200 + i * 40);
   }
 
-  // Cuerpo
   let bodyAlpha = map(b.hp, 0, b.maxHp, 80, 240);
   let bodyGrad = drawingContext.createRadialGradient(0, 0, 0, 0, 0, 90);
   bodyGrad.addColorStop(0, `rgba(180, 100, 220, ${bodyAlpha / 255})`);
@@ -1077,7 +1140,6 @@ function drawHomoGorleo(cx, cy) {
   strokeWeight(3);
   ellipse(0, 0, 170, 170);
 
-  // Ojos
   fill(255, 0, 51);
   noStroke();
   ellipse(-32, -22, 22, 28);
@@ -1089,13 +1151,11 @@ function drawHomoGorleo(cx, cy) {
   ellipse(-32, -22, 6, 10);
   ellipse(32, -22, 6, 10);
 
-  // Boca
   stroke(255, 0, 51, 220);
   strokeWeight(4);
   noFill();
   arc(0, 22, 70, 35, 0, PI);
 
-  // Ala
   if (!b.wingDestroyed) {
     push();
     translate(75, -65);
@@ -1124,7 +1184,6 @@ function drawHomoGorleo(cx, cy) {
     pop();
   }
 
-  // Pierna
   if (!b.legDestroyed) {
     push();
     translate(-65, 75);
@@ -1153,7 +1212,6 @@ function drawHomoGorleo(cx, cy) {
     pop();
   }
 
-  // HP Bar
   let hpRatio = b.hp / b.maxHp;
   push();
   noStroke();
@@ -1208,7 +1266,6 @@ function drawBattlePanel() {
   strokeWeight(8);
   line(0, panelY, width, panelY);
 
-  // HP del jugador
   push();
   noStroke();
   fill(20, 20, 20, 240);
@@ -1524,15 +1581,6 @@ function mouseReleased() {
   }
 }
 
-function keyPressed() {
-  if (gameState.currentDimension === 3) {
-    if (keyCode === 32) moveCatherineLetterUp();
-  }
-  if (gameState.currentDimension === 4 && key === 'r' && metaphorBattle.phase === 'defeat') {
-    initMetaphorBattle();
-  }
-}
-
 // ==========================================
 // CONDICIONES DE VICTORIA
 // ==========================================
@@ -1654,7 +1702,6 @@ function drawHub() {
 function drawAmbientEffects() {
   let dim = DIMENSIONS[gameState.currentDimension];
 
-  // P3 — Luna Llena + estrellas
   if (gameState.currentDimension === 0) {
     push();
     randomSeed(42);
@@ -1666,7 +1713,6 @@ function drawAmbientEffects() {
       noStroke();
       ellipse(sx, sy, 2, 2);
     }
-
     let pulse = sin(frameCount * 0.03) * 6;
     noStroke();
     fill(0, 153, 255, 20);
@@ -1679,7 +1725,6 @@ function drawAmbientEffects() {
     ellipse(width - 215, 185, 35, 35);
     ellipse(width - 180, 215, 22, 22);
     ellipse(width - 195, 240, 15, 15);
-
     noFill();
     stroke(dim.color);
     strokeWeight(2);
@@ -1689,19 +1734,16 @@ function drawAmbientEffects() {
     pop();
   }
 
-  // P4 — Scanlines + niebla
   if (gameState.currentDimension === 1) {
     push();
     noStroke();
     fill(255, 204, 0, 12);
     rect(0, 0, width, height);
-
     for (let y = (frameCount * 2) % 8; y < height; y += 8) {
       stroke(0, 0, 0, 25);
       strokeWeight(1);
       line(0, y, width, y);
     }
-
     for (let i = 0; i < 5; i++) {
       let fogY = (frameCount * 0.5 + i * 200) % (height + 400) - 200;
       fill(255, 204, 0, 8);
@@ -1711,7 +1753,6 @@ function drawAmbientEffects() {
     pop();
   }
 
-  // P5 — Líneas cinéticas
   if (gameState.currentDimension === 2) {
     push();
     stroke(255, 0, 51, 40);
@@ -1720,7 +1761,6 @@ function drawAmbientEffects() {
       let x = (frameCount * 3 + i * 150) % (width + 200) - 100;
       line(x, 0, x + 60, height);
     }
-
     if (frameCount % 30 === 0) {
       stroke(255, 255, 255, 60);
       strokeWeight(1);
@@ -1730,7 +1770,6 @@ function drawAmbientEffects() {
     pop();
   }
 
-  // Catherine — Rombos
   if (gameState.currentDimension === 3) {
     push();
     noFill();
@@ -1750,7 +1789,6 @@ function drawAmbientEffects() {
     pop();
   }
 
-  // Metaphor — Runas + luz
   if (gameState.currentDimension === 4) {
     push();
     for (let i = 0; i < 3; i++) {
@@ -1763,7 +1801,6 @@ function drawAmbientEffects() {
       drawingContext.setLineDash([]);
     }
     pop();
-
     if (frameCount % 25 === 0) {
       particles.push({
         type: 'rune',
@@ -1905,6 +1942,7 @@ function drawConstraints() {
 // UI
 // ==========================================
 function updateWordBar() {
+  // Barra inferior
   document.querySelectorAll('.word-slot').forEach(slot => {
     const index = parseInt(slot.dataset.index);
     const letter = LETTER_ORDER[index];
@@ -1916,6 +1954,28 @@ function updateWordBar() {
       slot.classList.remove('found');
     }
   });
+
+  // Brand superior
+  let allFound = true;
+  document.querySelectorAll('.brand-letter').forEach(el => {
+    const index = parseInt(el.dataset.index);
+    const letter = LETTER_ORDER[index];
+    if (gameState.foundLetters[letter]) {
+      if (el.textContent !== letter) {
+        el.textContent = letter;
+        el.classList.add('found');
+      }
+    } else {
+      el.textContent = "_";
+      el.classList.remove('found');
+      allFound = false;
+    }
+  });
+
+  const brandBar = document.getElementById('brand-bar');
+  if (brandBar) {
+    brandBar.classList.toggle('complete', allFound);
+  }
 }
 
 function showNotification(title, subtitle) {
