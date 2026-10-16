@@ -34,7 +34,7 @@ const DIMENSIONS = [
     color: "#0099ff",
     accent: "#00ffcc",
     bg: "#050b14",
-    desc: "Gravedad cero y estasis. Dispara impulsos con el cursor para colocar la 'A' dentro de la órbita de la Luna Llena.",
+    desc: "Carga el Evoker: mantén el clic, apunta y suelta para disparar. Empuja la 'A' hacia la Luna Llena.",
     gravity: { x: 0, y: 0 },
     friction: 0.001,
     phrases: ["Memento Mori", "The Dark Hour", "Are you afraid of death?", "The clock is ticking", "Death is not the end"],
@@ -48,12 +48,12 @@ const DIMENSIONS = [
     color: "#ffcc00",
     accent: "#ff8800",
     bg: "#1a1600",
-    desc: "Niebla y repulsión. Mueve el cursor para despejar la niebla y revelar la 'T' oculta.",
-    gravity: { x: 0, y: 0.2 },
-    friction: 0.05,
+    desc: "La 'T' salta entre televisores. Haz clic en el TV correcto cuando esté dentro para sintonizarla 5 veces.",
+    gravity: { x: 0, y: 0 },
+    friction: 0,
     phrases: ["Reach out to the truth", "I am thou", "Thou art I", "Can you see through the fog?", "The truth is out there"],
     cursor: "cell",
-    winCondition: "revealFog",
+    winCondition: "hitsTVs",
     music: "music/p4.mp3"
   },
   {
@@ -62,12 +62,12 @@ const DIMENSIONS = [
     color: "#ff0033",
     accent: "#ffffff",
     bg: "#120003",
-    desc: "Resortes y tensión. Arrastra la 'L' y suéltala para traerla al centro del Metaverso.",
-    gravity: { x: 0, y: 0.8 },
+    desc: "Roba el corazón: arrastra la 'L' hasta la zona de escape en la esquina inferior derecha.",
+    gravity: { x: 0, y: 0.5 },
     friction: 0.01,
     phrases: ["You'll never see it coming", "Take your heart", "Wake up, get up, get out there", "Are you free?", "Steal back your future"],
     cursor: "pointer",
-    winCondition: "bringToCenter",
+    winCondition: "reachEscape",
     music: "music/p5.mp3"
   },
   {
@@ -76,7 +76,7 @@ const DIMENSIONS = [
     color: "#ff00aa",
     accent: "#ffffff",
     bg: "#14000b",
-    desc: "Bloques y vértigo. La 'U' está enterrada bajo bloques. Apila y despeja para liberarla.",
+    desc: "Mueve los bloques con el mouse para liberar la 'U' atrapada abajo. Debe quedar sin bloques cerca.",
     gravity: { x: 0, y: 1.5 },
     friction: 0.4,
     phrases: ["It's a nightmare", "Don't look down", "Love is over", "What do you desire?", "Will you climb?"],
@@ -90,7 +90,7 @@ const DIMENSIONS = [
     color: "#e6b800",
     accent: "#ffdd44",
     bg: "#0d0c03",
-    desc: "Red de hilos y suspensión. Conecta los hilos dorados para bajar la 'S' al centro.",
+    desc: "Haz clic en los 3 anclajes dorados para tensar los hilos y bajar la 'S' al centro.",
     gravity: { x: 0, y: -0.1 },
     friction: 0.02,
     phrases: ["The world is a story", "Fantasy lives on", "You are its author", "Who are you?", "What story will you write?"],
@@ -99,6 +99,36 @@ const DIMENSIONS = [
     music: "music/metaphor.mp3"
   }
 ];
+
+// ==========================================
+// VARIABLES ESPECÍFICAS P3 (Evoker)
+// ==========================================
+let isCharging = false;
+let chargeStart = 0;
+let chargePower = 0;
+
+// ==========================================
+// VARIABLES ESPECÍFICAS P4 (TVs)
+// ==========================================
+let TVS = [];
+let tvLetterPos = { x: 0, y: 0 };
+let tvCurrentIndex = 0;
+let tvHitCount = 0;
+let tvLastMove = 0;
+let tvJumpSpeed = 2000;
+let tvVulnerable = false;
+let tvVulnerableTimer = 0;
+let tvMisses = 0;
+
+// ==========================================
+// VARIABLES ESPECÍFICAS P5 (Escape)
+// ==========================================
+let escapeZone = { x: 0, y: 0, w: 220, h: 160 };
+
+// ==========================================
+// VARIABLES ESPECÍFICAS METAPHOR (Anclajes)
+// ==========================================
+let anchors = [];
 
 // ==========================================
 // SETUP
@@ -122,14 +152,13 @@ function setup() {
   setupWorldSelect();
   updateWordBar();
 
-  // Por defecto, si ya tenía todo encontrado, mostrar el hub directamente
-  if (Object.values(gameState.foundLetters).every(v => v)) {
-    // Esperar a que el usuario seleccione mundo
-  }
+  // Zona de escape P5
+  escapeZone.x = width - 250;
+  escapeZone.y = height - 200;
 }
 
 // ==========================================
-// PANTALLA DE SELECCIÓN DE MUNDO
+// PANTALLA DE SELECCIÓN
 // ==========================================
 function setupWorldSelect() {
   const selectScreen = document.getElementById('world-select');
@@ -139,12 +168,9 @@ function setupWorldSelect() {
   cards.forEach(card => {
     card.addEventListener('click', () => {
       const dimIndex = parseInt(card.getAttribute('data-dim'));
-
       selectScreen.classList.add('fade-out');
       setTimeout(() => selectScreen.classList.add('hidden'), 600);
-
       gameUI.classList.remove('hidden');
-
       gameState.started = true;
       applyDimension(dimIndex);
     });
@@ -154,20 +180,14 @@ function setupWorldSelect() {
     stopMusic();
     gameState.started = false;
     gameState.inHub = false;
-
-    for (let l of letters) World.remove(world, l.body);
-    letters = [];
-    for (let c of constraints) World.remove(world, c);
-    constraints = [];
-    particles = [];
-    floatingPhrases = [];
+    resetWorld();
 
     selectScreen.classList.remove('hidden');
     setTimeout(() => selectScreen.classList.remove('fade-out'), 50);
     gameUI.classList.add('hidden');
+    document.getElementById('p4-hud').classList.add('hidden');
   });
 
-  // Botón de mute
   document.getElementById('toggle-music').addEventListener('click', () => {
     musicMuted = !musicMuted;
     if (bgMusic) bgMusic.setVolume(musicMuted ? 0 : 0.35);
@@ -175,31 +195,41 @@ function setupWorldSelect() {
   });
 }
 
+function resetWorld() {
+  for (let l of letters) World.remove(world, l.body);
+  letters = [];
+  for (let c of constraints) World.remove(world, c);
+  constraints = [];
+  particles = [];
+  floatingPhrases = [];
+  TVS = [];
+  anchors = [];
+  isCharging = false;
+  chargePower = 0;
+  tvHitCount = 0;
+  tvVulnerable = false;
+  document.getElementById('p4-hud').classList.add('hidden');
+}
+
 // ==========================================
-// MÚSICA DE FONDO
+// MÚSICA
 // ==========================================
 function playMusicForDimension(index) {
   stopMusic();
   const dim = DIMENSIONS[index];
   if (!dim.music) return;
-
   loadSound(dim.music,
     (sound) => {
       bgMusic = sound;
       bgMusic.setVolume(musicMuted ? 0 : 0.35);
       bgMusic.loop();
     },
-    (err) => {
-      console.warn("No se pudo cargar la música:", dim.music, err);
-    }
+    (err) => console.warn("No se pudo cargar la música:", dim.music, err)
   );
 }
 
 function stopMusic() {
-  if (bgMusic) {
-    bgMusic.stop();
-    bgMusic = null;
-  }
+  if (bgMusic) { bgMusic.stop(); bgMusic = null; }
 }
 
 // ==========================================
@@ -214,8 +244,14 @@ function draw() {
   const dim = DIMENSIONS[gameState.currentDimension];
   background(gameState.inHub ? "#0a0a12" : dim.bg);
 
-  if (gameState.inHub) {
-    drawHub();
+  if (gameState.inHub) { drawHub(); return; }
+
+  // P4: no usa motor de física
+  if (gameState.currentDimension === 1) {
+    drawAmbientEffects();
+    drawFloatingPhrases();
+    drawTVWorld();
+    drawParticles();
     return;
   }
 
@@ -226,6 +262,11 @@ function draw() {
   drawParticles();
 
   for (let l of letters) l.display();
+
+  // Efectos específicos
+  if (gameState.currentDimension === 0) drawCharge();
+  if (gameState.currentDimension === 2) drawEscapeZone();
+  if (gameState.currentDimension === 4) drawAnchors();
 
   handleInteractiveForces();
   checkLetterFound();
@@ -255,15 +296,15 @@ function createLetters() {
   const activeChar = chars[gameState.currentDimension];
 
   if (gameState.foundLetters[activeChar]) return;
+  if (gameState.currentDimension === 1) return; // P4 no usa física
 
   let x = width / 2;
   let y = height / 2;
 
   if (gameState.currentDimension === 0) { x = width / 2 + 300; y = height / 2; }
-  if (gameState.currentDimension === 1) { x = width / 2; y = height / 2; }
-  if (gameState.currentDimension === 2) { x = width - 200; y = 200; }
-  if (gameState.currentDimension === 3) { x = width / 2; y = height - 150; }
-  if (gameState.currentDimension === 4) { x = width / 2; y = 150; }
+  if (gameState.currentDimension === 2) { x = width - 300; y = 250; }
+  if (gameState.currentDimension === 3) { x = width / 2; y = height - 120; }
+  if (gameState.currentDimension === 4) { x = width / 2; y = 200; }
 
   let body = Bodies.rectangle(x, y, 70, 90, {
     restitution: 0.6,
@@ -274,20 +315,22 @@ function createLetters() {
   letters.push(new LetterBody(body, activeChar, gameState.currentDimension));
   World.add(world, body);
 
+  // P5: resorte al techo (Palacio)
   if (gameState.currentDimension === 2) {
     let spring = Constraint.create({
-      pointA: { x: width - 200, y: 100 },
+      pointA: { x: width - 300, y: 80 },
       bodyB: body,
-      stiffness: 0.02,
-      damping: 0.05
+      stiffness: 0.008,
+      damping: 0.1
     });
     constraints.push(spring);
     World.add(world, spring);
   }
 
+  // Metaphor: anclaje
   if (gameState.currentDimension === 4) {
     let anchor = Constraint.create({
-      pointA: { x: width / 2, y: 100 },
+      pointA: { x: width / 2, y: 80 },
       bodyB: body,
       stiffness: 0.03,
       damping: 0.02
@@ -296,16 +339,17 @@ function createLetters() {
     World.add(world, anchor);
   }
 
+  // Catherine: bloques que caen
   if (gameState.currentDimension === 3) {
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 6; i++) {
       let block = Bodies.rectangle(
-        width / 2 - 100 + i * 70,
-        height - 400,
-        60, 60,
-        { friction: 0.4, density: 0.005, restitution: 0.1 }
+        width / 2 + random(-200, 200),
+        -100 - i * 80,
+        55, 55,
+        { friction: 0.5, density: 0.005, restitution: 0.1 }
       );
       World.add(world, block);
-      particles.push({ body: block, type: 'block' });
+      particles.push({ body: block, type: 'block', permanent: true });
     }
   }
 }
@@ -319,17 +363,10 @@ class LetterBody {
     this.char = char;
     this.index = index;
   }
-
   display() {
     let pos = this.body.position;
     let angle = this.body.angle;
     let dim = DIMENSIONS[this.index];
-
-    if (this.index === 1) {
-      let d = dist(mouseX, mouseY, pos.x, pos.y);
-      if (d > 80) return;
-    }
-
     push();
     translate(pos.x, pos.y);
     rotate(angle);
@@ -338,7 +375,6 @@ class LetterBody {
     stroke(dim.color);
     fill("#111116");
     rect(0, 0, 70, 90, 8);
-
     textAlign(CENTER, CENTER);
     textSize(52);
     textFont('Montserrat');
@@ -361,13 +397,31 @@ function applyDimension(index) {
 
   for (let c of constraints) World.remove(world, c);
   constraints = [];
-  particles = particles.filter(p => p.type !== 'block');
+  particles = particles.filter(p => !p.permanent);
 
   for (let l of letters) World.remove(world, l.body);
   letters = [];
 
   if (!gameState.foundLetters[dim.letterTarget]) {
     createLetters();
+  }
+
+  // Inicializar específicos
+  if (index === 1) {
+    setupTVs();
+    createTVLetter();
+    document.getElementById('p4-hud').classList.remove('hidden');
+    updateP4Hud();
+  } else {
+    document.getElementById('p4-hud').classList.add('hidden');
+  }
+
+  if (index === 4) {
+    anchors = [
+      { x: width * 0.2, y: 100, tensioned: false },
+      { x: width * 0.5, y: 80, tensioned: false },
+      { x: width * 0.8, y: 100, tensioned: false }
+    ];
   }
 
   document.getElementById("goal-title").innerText = dim.name;
@@ -379,42 +433,237 @@ function applyDimension(index) {
 
   updateWorldSignature();
   spawnFloatingPhrases();
-
   playMusicForDimension(index);
+}
+
+// ==========================================
+// P3 — EVOKER (disparo cargado)
+// ==========================================
+function drawCharge() {
+  if (isCharging) {
+    let chargeTime = millis() - chargeStart;
+    chargePower = constrain(map(chargeTime, 0, 1500, 0, 1), 0, 1);
+
+    push();
+    noFill();
+    stroke(0, 153, 255, 200);
+    strokeWeight(3);
+    ellipse(mouseX, mouseY, 80 * chargePower, 80 * chargePower);
+
+    stroke(0, 153, 255, 100);
+    strokeWeight(1);
+    ellipse(mouseX, mouseY, 80, 80);
+
+    stroke(0, 153, 255, 255);
+    strokeWeight(2);
+    line(mouseX - 15, mouseY, mouseX + 15, mouseY);
+    line(mouseX, mouseY - 15, mouseX, mouseY + 15);
+    pop();
+  }
+}
+
+// ==========================================
+// P4 — TVs
+// ==========================================
+function setupTVs() {
+  TVS = [];
+  const pad = 180;
+  TVS.push({ x: pad, y: pad, r: 80 });
+  TVS.push({ x: width - pad, y: pad, r: 80 });
+  TVS.push({ x: width / 2, y: height / 2, r: 90 });
+  TVS.push({ x: pad, y: height - pad - 100, r: 80 });
+  TVS.push({ x: width - pad, y: height - pad - 100, r: 80 });
+}
+
+function createTVLetter() {
+  tvCurrentIndex = floor(random(TVS.length));
+  tvLetterPos.x = TVS[tvCurrentIndex].x;
+  tvLetterPos.y = TVS[tvCurrentIndex].y;
+  tvHitCount = 0;
+  tvLastMove = millis();
+  tvJumpSpeed = 2000;
+  tvVulnerable = false;
+  tvMisses = 0;
+}
+
+function drawTVWorld() {
+  // TVs
+  for (let i = 0; i < TVS.length; i++) {
+    let tv = TVS[i];
+    let isActive = (i === tvCurrentIndex) && !tvVulnerable;
+    let isVuln = (i === tvCurrentIndex) && tvVulnerable;
+
+    push();
+    noFill();
+    stroke(isVuln ? "#ffffff" : (isActive ? "#ffcc00" : "#444"));
+    strokeWeight(isActive || isVuln ? 4 : 2);
+    rect(tv.x - tv.r, tv.y - tv.r, tv.r * 2, tv.r * 2, 14);
+    pop();
+
+    // Scanlines en el activo
+    if (isActive || isVuln) {
+      push();
+      stroke(255, 204, 0, 40);
+      strokeWeight(1);
+      for (let y = tv.y - tv.r; y < tv.y + tv.r; y += 6) {
+        line(tv.x - tv.r, y, tv.x + tv.r, y);
+      }
+      pop();
+    }
+  }
+
+  // Letra 'T'
+  push();
+  textAlign(CENTER, CENTER);
+  textFont('Montserrat');
+  textSize(64);
+  fill(tvVulnerable ? "#ffffff" : "#ffcc00");
+  noStroke();
+  text("T", tvLetterPos.x, tvLetterPos.y);
+  pop();
+
+  // Auto-salto
+  if (!tvVulnerable && millis() - tvLastMove > tvJumpSpeed) {
+    let next;
+    do { next = floor(random(TVS.length)); } while (next === tvCurrentIndex && TVS.length > 1);
+    tvCurrentIndex = next;
+    tvLetterPos.x = TVS[tvCurrentIndex].x;
+    tvLetterPos.y = TVS[tvCurrentIndex].y;
+    tvLastMove = millis();
+    spawnStaticParticles();
+  }
+
+  // Fin de vulnerabilidad
+  if (tvVulnerable && millis() - tvVulnerableTimer > 1000) {
+    tvVulnerable = false;
+    tvJumpSpeed = max(600, tvJumpSpeed - 200);
+  }
+}
+
+function updateP4Hud() {
+  document.getElementById('p4-hits').textContent = `CHANNEL ${tvHitCount} / 5`;
+}
+
+// ==========================================
+// P5 — Zona de escape
+// ==========================================
+function drawEscapeZone() {
+  push();
+  noFill();
+  stroke(255, 0, 51, 180);
+  strokeWeight(3);
+  drawingContext.setLineDash([10, 8]);
+  rect(escapeZone.x, escapeZone.y, escapeZone.w, escapeZone.h, 14);
+  drawingContext.setLineDash([]);
+
+  textAlign(CENTER, CENTER);
+  textSize(16);
+  fill(255, 0, 51, 220);
+  noStroke();
+  textFont('Montserrat');
+  text("ESCAPE", escapeZone.x + escapeZone.w / 2, escapeZone.y + escapeZone.h / 2);
+  pop();
+}
+
+// ==========================================
+// METAPHOR — Anclajes
+// ==========================================
+function drawAnchors() {
+  push();
+  for (let a of anchors) {
+    noStroke();
+    fill(a.tensioned ? "#e6b800" : "#444");
+    ellipse(a.x, a.y, 36, 36);
+
+    if (a.tensioned) {
+      // Halo
+      noFill();
+      stroke(230, 184, 0, 100);
+      strokeWeight(2);
+      ellipse(a.x, a.y, 60, 60);
+      // Hilo
+      stroke(230, 184, 0, 180);
+      strokeWeight(2);
+      if (letters.length > 0) {
+        let pos = letters[0].body.position;
+        line(a.x, a.y, pos.x, pos.y);
+      }
+    }
+  }
+  pop();
 }
 
 // ==========================================
 // FUERZAS INTERACTIVAS
 // ==========================================
-function handleInteractiveForces() {
+function handleInteractiveForces() {}
+
+// ==========================================
+// MOUSE
+// ==========================================
+function mousePressed() {
+  if (!gameState.started || gameState.inHub) return;
+
+  // P3: iniciar carga
+  if (gameState.currentDimension === 0 && letters.length > 0) {
+    isCharging = true;
+    chargeStart = millis();
+  }
+
+  // P4: golpear TV
   if (gameState.currentDimension === 1) {
-    for (let l of letters) {
-      let d = dist(mouseX, mouseY, l.body.position.x, l.body.position.y);
-      if (d < 150) {
-        let force = Vector.sub(l.body.position, { x: mouseX, y: mouseY });
-        force = Vector.normalise(force);
-        force = Vector.mult(force, 0.005);
-        Body.applyForce(l.body, l.body.position, force);
+    let tv = TVS[tvCurrentIndex];
+    let d = dist(mouseX, mouseY, tv.x, tv.y);
+    if (d < tv.r) {
+      tvHitCount++;
+      tvVulnerable = true;
+      tvVulnerableTimer = millis();
+      spawnHitEffect(tv.x, tv.y);
+      showNotification(`CHANNEL ${tvHitCount}`, "Reach out to the truth");
+      updateP4Hud();
+      if (tvHitCount >= 5) {
+        setTimeout(() => sealLetter('T'), 600);
+      }
+    } else {
+      tvMisses++;
+      spawnMissEffect(mouseX, mouseY);
+      tvJumpSpeed = max(400, tvJumpSpeed - 300);
+    }
+  }
+
+  // Metaphor: tensar anclajes
+  if (gameState.currentDimension === 4) {
+    for (let a of anchors) {
+      if (dist(mouseX, mouseY, a.x, a.y) < 30) {
+        a.tensioned = true;
       }
     }
   }
 }
 
-function mousePressed() {
-  if (!gameState.started || gameState.inHub) return;
+function mouseReleased() {
+  // P3: disparar
+  if (gameState.currentDimension === 0 && isCharging && letters.length > 0) {
+    let chargeTime = millis() - chargeStart;
+    let power = map(chargeTime, 0, 1500, 0.03, 0.18);
+    power = constrain(power, 0.03, 0.18);
 
-  if (gameState.currentDimension === 0 && letters.length > 0) {
     let target = letters[0].body;
-    let force = Vector.sub(target.position, { x: mouseX, y: mouseY });
-    force = Vector.normalise(force);
-    force = Vector.mult(force, 0.08);
-    Body.applyForce(target, target.position, force);
+    let dir = Vector.sub({ x: mouseX, y: mouseY }, target.position);
+    dir = Vector.normalise(dir);
+    dir = Vector.mult(dir, power);
+    Body.applyForce(target, target.position, dir);
 
-    particles.push({
-      type: 'projectile',
-      pos: { x: mouseX, y: mouseY },
-      life: 30
-    });
+    for (let i = 0; i < 10; i++) {
+      particles.push({
+        type: 'projectile',
+        pos: { x: mouseX, y: mouseY },
+        vel: { x: dir.x * 100 + random(-1, 1), y: dir.y * 100 + random(-1, 1) },
+        life: 25
+      });
+    }
+    isCharging = false;
+    chargePower = 0;
   }
 }
 
@@ -422,8 +671,10 @@ function mousePressed() {
 // CONDICIONES DE VICTORIA
 // ==========================================
 function checkLetterFound() {
-  if (letters.length === 0 || gameState.inHub) return;
+  if (gameState.inHub) return;
+  if (gameState.currentDimension === 1) return; // P4 maneja su propia victoria
 
+  if (letters.length === 0) return;
   let l = letters[0];
   let pos = l.body.position;
   let dim = DIMENSIONS[gameState.currentDimension];
@@ -436,27 +687,25 @@ function checkLetterFound() {
       found = dist(pos.x, pos.y, moonX, moonY) < 80;
       break;
     }
-    case "revealFog": {
-      found = dist(mouseX, mouseY, pos.x, pos.y) < 60;
-      break;
-    }
-    case "bringToCenter": {
-      found = dist(pos.x, pos.y, width / 2, height / 2) < 100;
+    case "reachEscape": {
+      found = pos.x > escapeZone.x && pos.x < escapeZone.x + escapeZone.w &&
+              pos.y > escapeZone.y && pos.y < escapeZone.y + escapeZone.h;
       break;
     }
     case "freeU": {
       let bloquesCerca = particles.filter(p =>
-        p.type === 'block' && dist(p.body.position.x, p.body.position.y, pos.x, pos.y) < 80
+        p.permanent && dist(p.body.position.x, p.body.position.y, pos.x, pos.y) < 110
       ).length;
-      found = pos.y > height - 250 && bloquesCerca === 0;
+      found = pos.y > height - 200 && bloquesCerca === 0;
       break;
     }
     case "connectThreads": {
-      found = dist(pos.x, pos.y, width / 2, height / 2) < 120;
+      if (anchors.every(a => a.tensioned)) {
+        found = dist(pos.x, pos.y, width / 2, height / 2) < 150;
+      }
       break;
     }
   }
-
   if (found) sealLetter(l.char);
 }
 
@@ -465,7 +714,6 @@ function checkLetterFound() {
 // ==========================================
 function sealLetter(char) {
   if (gameState.foundLetters[char]) return;
-
   gameState.foundLetters[char] = true;
   localStorage.setItem('atlus_found', JSON.stringify(gameState.foundLetters));
 
@@ -473,17 +721,26 @@ function sealLetter(char) {
   showNotification(`"${char}" — ${dim.name}`, dim.phrases[0]);
   updateWordBar();
 
-  for (let i = 0; i < 40; i++) {
+  // Partículas doradas
+  let px = width / 2, py = height / 2;
+  if (letters.length > 0) {
+    px = letters[0].body.position.x;
+    py = letters[0].body.position.y;
+    World.remove(world, letters[0].body);
+  } else if (gameState.currentDimension === 1) {
+    px = tvLetterPos.x;
+    py = tvLetterPos.y;
+  }
+  letters = [];
+
+  for (let i = 0; i < 50; i++) {
     particles.push({
       type: 'gold',
-      pos: { x: letters[0].body.position.x, y: letters[0].body.position.y },
-      vel: { x: random(-6, 6), y: random(-6, 6) },
-      life: 60
+      pos: { x: px, y: py },
+      vel: { x: random(-7, 7), y: random(-7, 7) },
+      life: 70
     });
   }
-
-  World.remove(world, letters[0].body);
-  letters = [];
 
   if (Object.values(gameState.foundLetters).every(v => v)) {
     setTimeout(goToHub, 1500);
@@ -491,7 +748,7 @@ function sealLetter(char) {
     setTimeout(() => {
       let next = Object.values(gameState.foundLetters).findIndex(v => !v);
       if (next >= 0) applyDimension(next);
-    }, 1500);
+    }, 1800);
   }
 }
 
@@ -502,6 +759,7 @@ function goToHub() {
   gameState.inHub = true;
   letters = [];
   constraints = [];
+  resetWorld();
   World.clear(world, false);
   createBoundaries();
 
@@ -510,8 +768,8 @@ function goToHub() {
   document.getElementById("goal-panel").style.borderLeftColor = "#ffcc00";
   document.getElementById("goal-desc").innerText = "Cinco mundos. Una palabra. Tu turno.";
   document.getElementById("world-signature").innerHTML = "";
+  document.getElementById("p4-hud").classList.add("hidden");
   document.body.className = "";
-
   stopMusic();
 }
 
@@ -529,13 +787,11 @@ function drawHub() {
   textFont('Space Grotesk');
   fill("#888");
   for (let i = 0; i < 5; i++) {
-    let x = width / 2 - 260 + i * 130;
-    text(games[i], x, height / 2 - 10);
+    text(games[i], width / 2 - 260 + i * 130, height / 2 - 10);
   }
 
   textSize(22);
   fill("#ffffff");
-  textFont('Space Grotesk');
   text("Five worlds. One word. Your move.", width / 2, height / 2 + 60);
 
   textSize(14);
@@ -579,13 +835,11 @@ function drawAmbientEffects() {
   if (gameState.currentDimension === 1) {
     push();
     noStroke();
-    fill(255, 204, 0, 20);
+    fill(255, 204, 0, 15);
     rect(0, 0, width, height);
-    stroke(0, 0, 0, 40);
+    stroke(0, 0, 0, 30);
     strokeWeight(1);
-    for (let y = 0; y < height; y += 4) {
-      line(0, y, width, y);
-    }
+    for (let y = 0; y < height; y += 4) line(0, y, width, y);
     pop();
   }
 
@@ -632,45 +886,73 @@ function drawAmbientEffects() {
 }
 
 // ==========================================
-// DIBUJAR PARTÍCULAS
+// PARTÍCULAS
 // ==========================================
 function drawParticles() {
   for (let i = particles.length - 1; i >= 0; i--) {
     let p = particles[i];
+    if (p.permanent) continue;
 
     if (p.type === 'projectile') {
-      push();
-      fill(0, 153, 255);
-      noStroke();
-      ellipse(p.pos.x, p.pos.y, 12, 12);
-      pop();
+      push(); fill(0, 153, 255, p.life * 8); noStroke();
+      ellipse(p.pos.x, p.pos.y, 8, 8); pop();
+      p.pos.x += p.vel.x; p.pos.y += p.vel.y;
       p.life--;
       if (p.life <= 0) particles.splice(i, 1);
     } else if (p.type === 'gold') {
-      push();
-      fill(255, 204, 0, p.life);
-      noStroke();
-      ellipse(p.pos.x, p.pos.y, 6, 6);
-      pop();
-      p.pos.x += p.vel.x;
-      p.pos.y += p.vel.y;
-      p.vel.y += 0.1;
+      push(); fill(255, 204, 0, p.life); noStroke();
+      ellipse(p.pos.x, p.pos.y, 6, 6); pop();
+      p.pos.x += p.vel.x; p.pos.y += p.vel.y; p.vel.y += 0.1;
       p.life -= 2;
       if (p.life <= 0) particles.splice(i, 1);
     } else if (p.type === 'rune') {
-      push();
-      textAlign(CENTER, CENTER);
-      textSize(20);
-      fill(230, 184, 0, p.life);
-      noStroke();
-      text(p.char, p.pos.x, p.pos.y);
-      pop();
-      p.pos.x += p.vel.x;
-      p.pos.y += p.vel.y;
+      push(); textAlign(CENTER, CENTER); textSize(20);
+      fill(230, 184, 0, p.life); noStroke(); text(p.char, p.pos.x, p.pos.y); pop();
+      p.pos.x += p.vel.x; p.pos.y += p.vel.y; p.life--;
+      if (p.life <= 0) particles.splice(i, 1);
+    } else if (p.type === 'static') {
+      push(); fill(255, 255, 255, p.life * 8); noStroke();
+      rect(p.pos.x, p.pos.y, 4, 4); pop();
+      p.pos.x += p.vel.x; p.pos.y += p.vel.y; p.life--;
+      if (p.life <= 0) particles.splice(i, 1);
+    } else if (p.type === 'hit') {
+      push(); fill(255, 204, 0, p.life * 6); noStroke();
+      ellipse(p.pos.x, p.pos.y, 8, 8); pop();
+      p.pos.x += p.vel.x; p.pos.y += p.vel.y; p.life--;
+      if (p.life <= 0) particles.splice(i, 1);
+    } else if (p.type === 'miss') {
+      push(); textAlign(CENTER, CENTER); textSize(20);
+      fill(255, 0, 0, p.life * 6); noStroke(); text("STATIC...", p.pos.x, p.pos.y); pop();
       p.life--;
       if (p.life <= 0) particles.splice(i, 1);
     }
   }
+}
+
+function spawnStaticParticles() {
+  for (let i = 0; i < 15; i++) {
+    particles.push({
+      type: 'static',
+      pos: { x: tvLetterPos.x + random(-40, 40), y: tvLetterPos.y + random(-40, 40) },
+      vel: { x: random(-2, 2), y: random(-2, 2) },
+      life: 30
+    });
+  }
+}
+
+function spawnHitEffect(x, y) {
+  for (let i = 0; i < 30; i++) {
+    particles.push({
+      type: 'hit',
+      pos: { x, y },
+      vel: { x: random(-5, 5), y: random(-5, 5) },
+      life: 40
+    });
+  }
+}
+
+function spawnMissEffect(x, y) {
+  particles.push({ type: 'miss', pos: { x, y }, life: 40 });
 }
 
 // ==========================================
@@ -684,8 +966,7 @@ function spawnFloatingPhrases() {
       text: random(dim.phrases),
       x: random(100, width - 100),
       y: random(150, height - 150),
-      life: 300,
-      maxLife: 300
+      life: 300, maxLife: 300
     });
   }
 }
@@ -717,6 +998,7 @@ function drawFloatingPhrases() {
 // CONSTRAINTS
 // ==========================================
 function drawConstraints() {
+  if (gameState.currentDimension === 4) return; // Metaphor dibuja sus propios hilos
   let dim = DIMENSIONS[gameState.currentDimension];
   push();
   stroke(dim.color);
@@ -781,4 +1063,9 @@ function updateWorldSignature() {
 // ==========================================
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
+  escapeZone.x = width - 250;
+  escapeZone.y = height - 200;
+  if (gameState.currentDimension === 1 && gameState.started) {
+    setupTVs();
+  }
 }
