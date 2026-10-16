@@ -1,8 +1,8 @@
 // ==========================================
-// ATLUS: Multiverse Physical System — v3
+// ATLUS: Multiverse Physical System — v4
 // ==========================================
 
-const { Engine, World, Bodies, Body, Constraint, Vector, Mouse, MouseConstraint, Composite } = Matter;
+const { Engine, World, Bodies, Body, Constraint, Vector, Mouse, MouseConstraint } = Matter;
 
 let engine, world;
 let letters = [];
@@ -10,6 +10,7 @@ let constraints = [];
 let particles = [];
 let floatingPhrases = [];
 let mouseConstraint;
+let canvasMouse;
 let bgMusic = null;
 let musicMuted = false;
 
@@ -19,31 +20,65 @@ const gameState = {
   currentDimension: 0,
   foundLetters: JSON.parse(localStorage.getItem('atlus_found') || '{"A":false,"T":false,"L":false,"U":false,"S":false}'),
   inHub: false,
-  started: false,
-  canvasReady: false
+  started: false
 };
 
 const DIMENSIONS = [
-  { name: "Mundo 01 · The Dark Hour", letterTarget: "A", color: "#0099ff", bg: "#050b14",
+  {
+    name: "Mundo 01 · The Dark Hour",
+    letterTarget: "A",
+    color: "#0099ff",
+    bg: "#050b14",
     desc: "Carga el Evoker: mantén el clic, apunta y suelta. Empuja la letra hacia la Luna Llena.",
-    gravity: { x: 0, y: 0 }, phrases: ["Memento Mori", "The Dark Hour", "Are you afraid of death?", "The clock is ticking", "Death is not the end"],
-    winCondition: "orbitMoon", music: "music/p3.mp3" },
-  { name: "Mundo 02 · The TV World", letterTarget: "T", color: "#ffcc00", bg: "#1a1600",
+    gravity: { x: 0, y: 0 },
+    phrases: ["Memento Mori", "The Dark Hour", "Are you afraid of death?", "The clock is ticking", "Death is not the end"],
+    winCondition: "orbitMoon",
+    music: "music/p3.mp3"
+  },
+  {
+    name: "Mundo 02 · The TV World",
+    letterTarget: "T",
+    color: "#ffcc00",
+    bg: "#1a1600",
     desc: "La letra salta entre televisores. Haz clic en el TV correcto cuando esté dentro, 5 veces.",
-    gravity: { x: 0, y: 0 }, phrases: ["Reach out to the truth", "I am thou", "Thou art I", "Can you see through the fog?", "The truth is out there"],
-    winCondition: "hitsTVs", music: "music/p4.mp3" },
-  { name: "Mundo 03 · The Metaverse", letterTarget: "L", color: "#ff0033", bg: "#120003",
+    gravity: { x: 0, y: 0 },
+    phrases: ["Reach out to the truth", "I am thou", "Thou art I", "Can you see through the fog?", "The truth is out there"],
+    winCondition: "hitsTVs",
+    music: "music/p4.mp3"
+  },
+  {
+    name: "Mundo 03 · The Metaverse",
+    letterTarget: "L",
+    color: "#ff0033",
+    bg: "#120003",
     desc: "Escapa de Mementos: arrastra la letra por el laberinto hasta la salida roja.",
-    gravity: { x: 0, y: 0 }, phrases: ["You'll never see it coming", "Take your heart", "Wake up, get up, get out there", "Are you free?", "Steal back your future"],
-    winCondition: "reachEscape", music: "music/p5.mp3" },
-  { name: "Mundo 04 · Tower of Babel", letterTarget: "U", color: "#ff00aa", bg: "#14000b",
-    desc: "Sube bloques: apila bloques con el mouse debajo de la letra para elevarla hasta la cima.",
-    gravity: { x: 0, y: 1.2 }, phrases: ["It's a nightmare", "Don't look down", "Love is over", "What do you desire?", "Will you climb?"],
-    winCondition: "stackTower", music: "music/catherine.mp3" },
-  { name: "Mundo 05 · Archetype Threads", letterTarget: "S", color: "#e6b800", bg: "#0d0c03",
+    gravity: { x: 0, y: 0 },
+    phrases: ["You'll never see it coming", "Take your heart", "Wake up, get up, get out there", "Are you free?", "Steal back your future"],
+    winCondition: "reachEscape",
+    music: "music/p5.mp3"
+  },
+  {
+    name: "Mundo 04 · Tower of Babel",
+    letterTarget: "U",
+    color: "#ff00aa",
+    bg: "#14000b",
+    desc: "Arrastra los bloques con el mouse para apilarlos debajo de la letra y elevarla hasta la cima.",
+    gravity: { x: 0, y: 1.2 },
+    phrases: ["It's a nightmare", "Don't look down", "Love is over", "What do you desire?", "Will you climb?"],
+    winCondition: "stackTower",
+    music: "music/catherine.mp3"
+  },
+  {
+    name: "Mundo 05 · Archetype Threads",
+    letterTarget: "S",
+    color: "#e6b800",
+    bg: "#0d0c03",
     desc: "Tensa los hilos: haz clic en los 3 anclajes dorados para bajar la letra al centro.",
-    gravity: { x: 0, y: -0.1 }, phrases: ["The world is a story", "Fantasy lives on", "You are its author", "Who are you?", "What story will you write?"],
-    winCondition: "connectThreads", music: "music/metaphor.mp3" }
+    gravity: { x: 0, y: -0.1 },
+    phrases: ["The world is a story", "Fantasy lives on", "You are its author", "Who are you?", "What story will you write?"],
+    winCondition: "connectThreads",
+    music: "music/metaphor.mp3"
+  }
 ];
 
 // P3
@@ -87,11 +122,16 @@ function setup() {
   engine = Engine.create();
   world = engine.world;
 
-  let canvasMouse = Mouse.create(canvas.elt);
+  // MouseConstraint con stiffness alto para que arrastre bien los bloques
+  canvasMouse = Mouse.create(canvas.elt);
   canvasMouse.pixelRatio = pixelDensity();
   mouseConstraint = MouseConstraint.create(engine, {
     mouse: canvasMouse,
-    constraint: { stiffness: 0.4, render: { visible: false } }
+    constraint: {
+      stiffness: 0.8,      // <-- FIX 2: alta para arrastrar bloques pesados
+      damping: 0.1,
+      render: { visible: false }
+    }
   });
   World.add(world, mouseConstraint);
 
@@ -99,14 +139,12 @@ function setup() {
   setupWorldSelect();
   updateWordBar();
 
-  escapeZone.x = width - 260;
-  escapeZone.y = height - 220;
-
-  gameState.canvasReady = true;
+  escapeZone.x = width - 280;
+  escapeZone.y = height - 240;
 }
 
 // ==========================================
-// SELECCIÓN
+// SELECCIÓN DE MUNDO
 // ==========================================
 function setupWorldSelect() {
   const selectScreen = document.getElementById('world-select');
@@ -187,11 +225,18 @@ function playMusicForDimension(index) {
   const dim = DIMENSIONS[index];
   if (!dim.music) return;
   loadSound(dim.music,
-    (sound) => { bgMusic = sound; bgMusic.setVolume(musicMuted ? 0 : 0.35); bgMusic.loop(); },
+    (sound) => {
+      bgMusic = sound;
+      bgMusic.setVolume(musicMuted ? 0 : 0.35);
+      bgMusic.loop();
+    },
     (err) => console.warn("Música no cargada:", dim.music)
   );
 }
-function stopMusic() { if (bgMusic) { bgMusic.stop(); bgMusic = null; } }
+
+function stopMusic() {
+  if (bgMusic) { bgMusic.stop(); bgMusic = null; }
+}
 
 // ==========================================
 // DRAW
@@ -207,6 +252,7 @@ function draw() {
   drawAmbientEffects();
   drawFloatingPhrases();
 
+  // P4 no usa Matter
   if (gameState.currentDimension === 1) {
     drawTVWorld();
     drawParticles();
@@ -253,37 +299,56 @@ function createLetters() {
 
   let x = width / 2, y = height / 2;
   if (gameState.currentDimension === 0) { x = width / 2 + 300; y = height / 2; }
-  if (gameState.currentDimension === 2) { x = width * 0.15; y = height * 0.3; } // Mementos: arriba izq
+  if (gameState.currentDimension === 2) { x = width * 0.15; y = height * 0.15; }
   if (gameState.currentDimension === 3) { x = width / 2; y = height - 200; }
   if (gameState.currentDimension === 4) { x = width / 2; y = 200; }
 
   let body = Bodies.rectangle(x, y, 60, 80, {
-    restitution: 0.6, friction: 0.05, density: 0.002
+    restitution: 0.6,
+    friction: 0.05,
+    density: 0.002
   });
-  body.plugin = { isLetter: true };
 
   letters.push(new LetterBody(body, activeChar, gameState.currentDimension));
   World.add(world, body);
 
   if (gameState.currentDimension === 4) {
     let anchor = Constraint.create({
-      pointA: { x: width / 2, y: 80 }, bodyB: body, stiffness: 0.03, damping: 0.02
+      pointA: { x: width / 2, y: 80 },
+      bodyB: body,
+      stiffness: 0.03,
+      damping: 0.02
     });
-    constraints.push(anchor); World.add(world, anchor);
+    constraints.push(anchor);
+    World.add(world, anchor);
   }
 }
 
 class LetterBody {
-  constructor(body, char, index) { this.body = body; this.char = char; this.index = index; }
+  constructor(body, char, index) {
+    this.body = body;
+    this.char = char;
+    this.index = index;
+  }
+
   display() {
-    let pos = this.body.position, angle = this.body.angle;
+    let pos = this.body.position;
+    let angle = this.body.angle;
     let dim = DIMENSIONS[this.index];
     push();
-    translate(pos.x, pos.y); rotate(angle);
-    rectMode(CENTER); strokeWeight(4); stroke(dim.color); fill("#111116");
+    translate(pos.x, pos.y);
+    rotate(angle);
+    rectMode(CENTER);
+    strokeWeight(4);
+    stroke(dim.color);
+    fill("#111116");
     rect(0, 0, 60, 80, 8);
-    textAlign(CENTER, CENTER); textSize(44); textFont('Montserrat');
-    fill(dim.color); noStroke(); text(this.char, 0, -2);
+    textAlign(CENTER, CENTER);
+    textSize(44);
+    textFont('Montserrat');
+    fill(dim.color);
+    noStroke();
+    text(this.char, 0, -2);
     pop();
   }
 }
@@ -292,15 +357,13 @@ class LetterBody {
 // APLICAR DIMENSIÓN
 // ==========================================
 function applyDimension(index) {
-  // Limpiar el mundo ANTERIOR
   const prevIndex = gameState.currentDimension;
 
-  // Limpiar bloques de Catherine si veníamos de ahí
+  // Limpiar mundo ANTERIOR
   if (prevIndex === 3) {
     for (let b of catherineState.towerBodies) World.remove(world, b);
     catherineState.towerBodies = [];
   }
-  // Limpiar paredes de Mementos si veníamos de ahí
   if (prevIndex === 2) {
     for (let w of mementosWalls) World.remove(world, w);
     mementosWalls = [];
@@ -326,16 +389,18 @@ function applyDimension(index) {
     document.getElementById('p4-hud').classList.remove('hidden');
     updateP4Hud();
   } else if (index === 2) {
-    // Mementos
     buildMementosLabyrinth();
     createLetters();
     document.getElementById('p4-hud').classList.add('hidden');
   } else if (index === 3) {
-    // Catherine
+    // Catherine: spawnear 3 bloques de inicio
     catherineState.towerBodies = [];
-    catherineState.lastSpawn = millis();
+    catherineState.lastSpawn = 0;
     catherineState.spawnInterval = 1800;
     createLetters();
+    for (let i = 0; i < 3; i++) {
+      spawnCatherineBlock(-100 - i * 150);
+    }
     document.getElementById('catherine-hud').classList.remove('hidden');
     document.getElementById('p4-hud').classList.add('hidden');
   } else {
@@ -377,11 +442,14 @@ function drawCharge() {
     chargePower = constrain(map(chargeTime, 0, 1500, 0, 1), 0, 1);
     push();
     noFill();
-    stroke(0, 153, 255, 200); strokeWeight(3);
+    stroke(0, 153, 255, 200);
+    strokeWeight(3);
     ellipse(mouseX, mouseY, 80 * chargePower, 80 * chargePower);
-    stroke(0, 153, 255, 100); strokeWeight(1);
+    stroke(0, 153, 255, 100);
+    strokeWeight(1);
     ellipse(mouseX, mouseY, 80, 80);
-    stroke(0, 153, 255, 255); strokeWeight(2);
+    stroke(0, 153, 255, 255);
+    strokeWeight(2);
     line(mouseX - 15, mouseY, mouseX + 15, mouseY);
     line(mouseX, mouseY - 15, mouseX, mouseY + 15);
     pop();
@@ -389,19 +457,19 @@ function drawCharge() {
 }
 
 // ==========================================
-// P4 — TVs (CORREGIDO: posiciones más alejadas del panel)
+// P4 — TVs (FIX 4: no chocan con el panel)
 // ==========================================
 function setupTVs() {
   TVS = [];
   const padX = 220;
-  const padTop = 160;
-  const padBottom = 300; // margen extra abajo
+  const padTop = 180;
+  const yBottom = height - 420; // <-- Muy arriba para no chocar con el panel
 
-  TVS.push({ x: padX, y: padTop, r: 80 });
-  TVS.push({ x: width - padX, y: padTop, r: 80 });
-  TVS.push({ x: width / 2, y: height / 2 - 40, r: 90 });
-  TVS.push({ x: padX, y: height - padBottom, r: 80 });
-  TVS.push({ x: width - padX, y: height - padBottom, r: 80 });
+  TVS.push({ x: padX, y: padTop, r: 80 });                    // arriba izq
+  TVS.push({ x: width - padX, y: padTop, r: 80 });            // arriba der
+  TVS.push({ x: width / 2, y: height / 2 - 60, r: 90 });      // centro
+  TVS.push({ x: padX, y: yBottom, r: 80 });                   // abajo izq
+  TVS.push({ x: width - padX, y: yBottom, r: 80 });           // abajo der
 }
 
 function createTVLetter() {
@@ -427,7 +495,8 @@ function drawTVWorld() {
     pop();
     if (isActive || isVuln) {
       push();
-      stroke(255, 204, 0, 40); strokeWeight(1);
+      stroke(255, 204, 0, 40);
+      strokeWeight(1);
       for (let y = tv.y - tv.r; y < tv.y + tv.r; y += 6) {
         line(tv.x - tv.r, y, tv.x + tv.r, y);
       }
@@ -435,8 +504,11 @@ function drawTVWorld() {
     }
   }
   push();
-  textAlign(CENTER, CENTER); textFont('Montserrat'); textSize(64);
-  fill(tvVulnerable ? "#ffffff" : "#ffcc00"); noStroke();
+  textAlign(CENTER, CENTER);
+  textFont('Montserrat');
+  textSize(64);
+  fill(tvVulnerable ? "#ffffff" : "#ffcc00");
+  noStroke();
   text("?", tvLetterPos.x, tvLetterPos.y);
   pop();
 
@@ -461,36 +533,37 @@ function updateP4Hud() {
 }
 
 // ==========================================
-// P5 — MEMENTOS (laberinto real)
+// P5 — MEMENTOS (FIX 3: laberinto visible)
 // ==========================================
 function buildMementosLabyrinth() {
   for (let w of mementosWalls) World.remove(world, w);
   mementosWalls = [];
 
-  const wallThickness = 26;
+  const t = 30;
   const opts = { isStatic: true, friction: 0.3 };
+  const w = width, h = height;
 
-  // Laberinto en zigzag
+  // Laberinto en zigzag con huecos claros
   const walls = [
-    // Pared horizontal superior
-    Bodies.rectangle(width * 0.55, height * 0.28, 400, wallThickness, opts),
-    // Pared vertical izquierda
-    Bodies.rectangle(width * 0.32, height * 0.42, wallThickness, 300, opts),
-    // Pared horizontal media
-    Bodies.rectangle(width * 0.55, height * 0.55, 400, wallThickness, opts),
-    // Pared vertical derecha
-    Bodies.rectangle(width * 0.78, height * 0.42, wallThickness, 300, opts),
-    // Pared horizontal baja
-    Bodies.rectangle(width * 0.45, height * 0.75, 350, wallThickness, opts),
-    // Pared vertical baja
-    Bodies.rectangle(width * 0.25, height * 0.7, wallThickness, 200, opts),
-    // Paredes extra
-    Bodies.rectangle(width * 0.65, height * 0.85, wallThickness, 150, opts),
+    // 1. Horizontal superior (hueco a la derecha)
+    Bodies.rectangle(w * 0.35, h * 0.22, w * 0.5, t, opts),
+    // 2. Vertical izquierda
+    Bodies.rectangle(w * 0.10, h * 0.40, t, h * 0.3, opts),
+    // 3. Horizontal media (hueco a la izquierda)
+    Bodies.rectangle(w * 0.65, h * 0.48, w * 0.5, t, opts),
+    // 4. Vertical derecha
+    Bodies.rectangle(w * 0.90, h * 0.40, t, h * 0.28, opts),
+    // 5. Horizontal baja (hueco a la derecha)
+    Bodies.rectangle(w * 0.35, h * 0.70, w * 0.5, t, opts),
+    // 6. Vertical baja izquierda
+    Bodies.rectangle(w * 0.10, h * 0.85, t, h * 0.2, opts),
+    // 7. Bloque final
+    Bodies.rectangle(w * 0.55, h * 0.88, w * 0.3, t, opts)
   ];
 
-  for (let w of walls) {
-    World.add(world, w);
-    mementosWalls.push(w);
+  for (let wall of walls) {
+    World.add(world, wall);
+    mementosWalls.push(wall);
   }
 }
 
@@ -501,13 +574,12 @@ function drawMementosWalls() {
     let wHeight = w.bounds.max.y - w.bounds.min.y;
     push();
     translate(w.position.x, w.position.y);
-    rotate(w.angle);
     rectMode(CENTER);
     noStroke();
-    fill(255, 0, 51, 60);
+    fill(255, 0, 51, 120);
     rect(0, 0, wWidth, wHeight);
-    stroke(255, 0, 51, 200);
-    strokeWeight(2);
+    stroke(255, 0, 51, 255);
+    strokeWeight(3);
     noFill();
     rect(0, 0, wWidth, wHeight);
     pop();
@@ -533,8 +605,20 @@ function drawEscapeZone() {
 }
 
 // ==========================================
-// CATHERINE — Subir bloques (CORREGIDO)
+// CATHERINE (FIX 1 y 2)
 // ==========================================
+function spawnCatherineBlock(yPos = -50) {
+  let block = Bodies.rectangle(
+    width / 2 + random(-250, 250),
+    yPos,
+    55, 55,
+    { friction: 0.6, density: 0.0008, restitution: 0.1 }
+  );
+  World.add(world, block);
+  catherineState.towerBodies.push(block);
+  return block;
+}
+
 function drawCatherineTower() {
   // Base visual
   push();
@@ -545,14 +629,7 @@ function drawCatherineTower() {
 
   // Spawnear bloques
   if (millis() - catherineState.lastSpawn > catherineState.spawnInterval) {
-    let block = Bodies.rectangle(
-      width / 2 + random(-250, 250),
-      -50,
-      55, 55,
-      { friction: 0.6, density: 0.0008, restitution: 0.1 } // densidad MUY baja
-    );
-    World.add(world, block);
-    catherineState.towerBodies.push(block);
+    spawnCatherineBlock(-50);
     catherineState.lastSpawn = millis();
     catherineState.spawnInterval = max(700, catherineState.spawnInterval - 60);
   }
@@ -575,7 +652,7 @@ function drawCatherineTower() {
   }
   pop();
 
-  // Actualizar HUD de altura
+  // HUD de altura
   if (letters.length > 0) {
     let letterY = letters[0].body.position.y;
     let altura = constrain(map(height - letterY, 0, height - 100, 0, 100), 0, 100);
@@ -583,7 +660,6 @@ function drawCatherineTower() {
   }
 }
 
-// Catherine: aplicar elevación si hay bloques debajo
 function applyCatherineLift() {
   if (letters.length === 0) return;
   let letterBody = letters[0].body;
@@ -594,13 +670,13 @@ function applyCatherineLift() {
 
   if (blocksBelow > 0) {
     Body.applyForce(letterBody, letterBody.position, {
-      x: 0, y: -0.002 * blocksBelow
+      x: 0, y: -0.003 * blocksBelow
     });
   }
 }
 
 // ==========================================
-// METAPHOR — Anclajes
+// METAPHOR
 // ==========================================
 function drawAnchors() {
   push();
@@ -610,9 +686,11 @@ function drawAnchors() {
     ellipse(a.x, a.y, 36, 36);
     if (a.tensioned) {
       noFill();
-      stroke(230, 184, 0, 100); strokeWeight(2);
+      stroke(230, 184, 0, 100);
+      strokeWeight(2);
       ellipse(a.x, a.y, 60, 60);
-      stroke(230, 184, 0, 180); strokeWeight(2);
+      stroke(230, 184, 0, 180);
+      strokeWeight(2);
       if (letters.length > 0) {
         let pos = letters[0].body.position;
         line(a.x, a.y, pos.x, pos.y);
@@ -627,7 +705,6 @@ function drawAnchors() {
 // ==========================================
 function mousePressed() {
   if (!gameState.started || gameState.inHub) return;
-  if (!gameState.canvasReady) return;
 
   if (gameState.currentDimension === 0 && letters.length > 0) {
     isCharging = true;
@@ -703,7 +780,7 @@ function checkLetterFound() {
               pos.y > escapeZone.y && pos.y < escapeZone.y + escapeZone.h;
       break;
     case "stackTower":
-      found = pos.y < height - 550; // letra muy arriba
+      found = pos.y < height - 550;
       break;
     case "connectThreads":
       if (anchors.every(a => a.tensioned)) {
@@ -782,17 +859,24 @@ function goToHub() {
 function drawHub() {
   push();
   textAlign(CENTER, CENTER);
-  textFont('Montserrat'); textSize(120); fill("#ffcc00"); noStroke();
+  textFont('Montserrat');
+  textSize(120);
+  fill("#ffcc00");
+  noStroke();
   text("A T L U S", width / 2, height / 2 - 80);
 
-  textSize(14); textFont('Space Grotesk'); fill("#888");
+  textSize(14);
+  textFont('Space Grotesk');
+  fill("#888");
   const games = ["P3", "P4", "P5", "Catherine", "Metaphor"];
   for (let i = 0; i < 5; i++) {
     text(games[i], width / 2 - 260 + i * 130, height / 2 - 10);
   }
-  textSize(22); fill("#ffffff");
+  textSize(22);
+  fill("#ffffff");
   text("Five worlds. One word. Your move.", width / 2, height / 2 + 60);
-  textSize(14); fill("#888");
+  textSize(14);
+  fill("#888");
   text("El mundo es una historia, y tú eres su autor.", width / 2, height / 2 + 100);
   pop();
 
@@ -816,10 +900,15 @@ function drawAmbientEffects() {
     let pulse = sin(frameCount * 0.03) * 8;
     push();
     noStroke();
-    fill(0, 153, 255, 30); ellipse(width / 2 - 240, height / 2, 180 + pulse, 180 + pulse);
-    fill(0, 153, 255, 60); ellipse(width / 2 - 240, height / 2, 150 + pulse * 0.5, 150 + pulse * 0.5);
-    fill(180, 220, 255, 200); ellipse(width / 2 - 240, height / 2, 120, 120);
-    noFill(); stroke(dim.color); strokeWeight(2);
+    fill(0, 153, 255, 30);
+    ellipse(width / 2 - 240, height / 2, 180 + pulse, 180 + pulse);
+    fill(0, 153, 255, 60);
+    ellipse(width / 2 - 240, height / 2, 150 + pulse * 0.5, 150 + pulse * 0.5);
+    fill(180, 220, 255, 200);
+    ellipse(width / 2 - 240, height / 2, 120, 120);
+    noFill();
+    stroke(dim.color);
+    strokeWeight(2);
     drawingContext.setLineDash([6, 6]);
     ellipse(width / 2 - 240, height / 2, 140 + pulse, 140 + pulse);
     drawingContext.setLineDash([]);
@@ -827,14 +916,20 @@ function drawAmbientEffects() {
   }
 
   if (gameState.currentDimension === 1) {
-    push(); noStroke(); fill(255, 204, 0, 15); rect(0, 0, width, height);
-    stroke(0, 0, 0, 30); strokeWeight(1);
+    push();
+    noStroke();
+    fill(255, 204, 0, 15);
+    rect(0, 0, width, height);
+    stroke(0, 0, 0, 30);
+    strokeWeight(1);
     for (let y = 0; y < height; y += 4) line(0, y, width, y);
     pop();
   }
 
   if (gameState.currentDimension === 2) {
-    push(); stroke(255, 255, 255, 15); strokeWeight(2);
+    push();
+    stroke(255, 255, 255, 15);
+    strokeWeight(2);
     for (let i = 0; i < 8; i++) {
       let x = (frameCount * 2 + i * 200) % (width + 200) - 100;
       line(x, 0, x + 100, height);
@@ -843,7 +938,10 @@ function drawAmbientEffects() {
   }
 
   if (gameState.currentDimension === 3) {
-    push(); noFill(); stroke(255, 0, 170, 20); strokeWeight(1);
+    push();
+    noFill();
+    stroke(255, 0, 170, 20);
+    strokeWeight(1);
     let offset = frameCount * 0.5;
     for (let x = -100; x < width + 100; x += 80) {
       for (let y = -100; y < height + 100; y += 80) {
@@ -877,30 +975,36 @@ function drawParticles() {
     if (p.permanent) continue;
 
     if (p.type === 'projectile') {
-      push(); fill(0, 153, 255, p.life * 8); noStroke(); ellipse(p.pos.x, p.pos.y, 8, 8); pop();
+      push(); fill(0, 153, 255, p.life * 8); noStroke();
+      ellipse(p.pos.x, p.pos.y, 8, 8); pop();
       p.pos.x += p.vel.x; p.pos.y += p.vel.y; p.life--;
       if (p.life <= 0) particles.splice(i, 1);
     } else if (p.type === 'gold') {
-      push(); fill(255, 204, 0, p.life); noStroke(); ellipse(p.pos.x, p.pos.y, 6, 6); pop();
+      push(); fill(255, 204, 0, p.life); noStroke();
+      ellipse(p.pos.x, p.pos.y, 6, 6); pop();
       p.pos.x += p.vel.x; p.pos.y += p.vel.y; p.vel.y += 0.1;
       p.life -= 2;
       if (p.life <= 0) particles.splice(i, 1);
     } else if (p.type === 'rune') {
       push(); textAlign(CENTER, CENTER); textSize(20);
-      fill(230, 184, 0, p.life); noStroke(); text(p.char, p.pos.x, p.pos.y); pop();
+      fill(230, 184, 0, p.life); noStroke();
+      text(p.char, p.pos.x, p.pos.y); pop();
       p.pos.x += p.vel.x; p.pos.y += p.vel.y; p.life--;
       if (p.life <= 0) particles.splice(i, 1);
     } else if (p.type === 'static') {
-      push(); fill(255, 255, 255, p.life * 8); noStroke(); rect(p.pos.x, p.pos.y, 4, 4); pop();
+      push(); fill(255, 255, 255, p.life * 8); noStroke();
+      rect(p.pos.x, p.pos.y, 4, 4); pop();
       p.pos.x += p.vel.x; p.pos.y += p.vel.y; p.life--;
       if (p.life <= 0) particles.splice(i, 1);
     } else if (p.type === 'hit') {
-      push(); fill(255, 204, 0, p.life * 6); noStroke(); ellipse(p.pos.x, p.pos.y, 8, 8); pop();
+      push(); fill(255, 204, 0, p.life * 6); noStroke();
+      ellipse(p.pos.x, p.pos.y, 8, 8); pop();
       p.pos.x += p.vel.x; p.pos.y += p.vel.y; p.life--;
       if (p.life <= 0) particles.splice(i, 1);
     } else if (p.type === 'miss') {
       push(); textAlign(CENTER, CENTER); textSize(20);
-      fill(255, 0, 0, p.life * 6); noStroke(); text("STATIC...", p.pos.x, p.pos.y); pop();
+      fill(255, 0, 0, p.life * 6); noStroke();
+      text("STATIC...", p.pos.x, p.pos.y); pop();
       p.life--;
       if (p.life <= 0) particles.splice(i, 1);
     }
@@ -917,17 +1021,24 @@ function spawnStaticParticles() {
     });
   }
 }
+
 function spawnHitEffect(x, y) {
   for (let i = 0; i < 30; i++) {
-    particles.push({ type: 'hit', pos: { x, y }, vel: { x: random(-5, 5), y: random(-5, 5) }, life: 40 });
+    particles.push({
+      type: 'hit',
+      pos: { x, y },
+      vel: { x: random(-5, 5), y: random(-5, 5) },
+      life: 40
+    });
   }
 }
+
 function spawnMissEffect(x, y) {
   particles.push({ type: 'miss', pos: { x, y }, life: 40 });
 }
 
 // ==========================================
-// FRASES
+// FRASES FLOTANTES
 // ==========================================
 function spawnFloatingPhrases() {
   floatingPhrases = [];
@@ -937,14 +1048,17 @@ function spawnFloatingPhrases() {
       text: random(dim.phrases),
       x: random(100, width - 100),
       y: random(150, height - 150),
-      life: 300, maxLife: 300
+      life: 300,
+      maxLife: 300
     });
   }
 }
 
 function drawFloatingPhrases() {
   push();
-  textAlign(CENTER, CENTER); textFont('Space Grotesk'); textSize(18);
+  textAlign(CENTER, CENTER);
+  textFont('Space Grotesk');
+  textSize(18);
   let dim = DIMENSIONS[gameState.currentDimension];
   for (let i = floatingPhrases.length - 1; i >= 0; i--) {
     let fp = floatingPhrases[i];
@@ -969,7 +1083,9 @@ function drawFloatingPhrases() {
 function drawConstraints() {
   if (gameState.currentDimension === 4) return;
   let dim = DIMENSIONS[gameState.currentDimension];
-  push(); stroke(dim.color); strokeWeight(3);
+  push();
+  stroke(dim.color);
+  strokeWeight(3);
   for (let c of constraints) {
     let posA = c.pointA;
     let posB = c.bodyB ? c.bodyB.position : c.pointB;
@@ -1015,10 +1131,13 @@ function updateWorldSignature() {
   document.getElementById('world-signature').innerHTML = sigs[gameState.currentDimension] || "";
 }
 
+// ==========================================
+// RESIZE
+// ==========================================
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
-  escapeZone.x = width - 260;
-  escapeZone.y = height - 220;
+  escapeZone.x = width - 280;
+  escapeZone.y = height - 240;
   if (gameState.currentDimension === 1 && gameState.started) setupTVs();
   if (gameState.currentDimension === 2 && gameState.started) buildMementosLabyrinth();
 }
