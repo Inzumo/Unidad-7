@@ -1,5 +1,5 @@
 // ==========================================
-// ATLUS: Multiverse Physical System — v7.1
+// ATLUS: Multiverse Physical System — v8
 // ==========================================
 
 const { Engine, World, Bodies, Body, Constraint, Vector, Mouse, MouseConstraint } = Matter;
@@ -40,7 +40,7 @@ const DIMENSIONS = [
     phrases: ["You'll never see it coming", "Take your heart", "Wake up, get up, get out there", "Are you free?", "Steal back your future"],
     winCondition: "reachEscape", music: "music/p5.mp3" },
   { name: "Mundo 04 · Tower of Babel", letterTarget: "U", color: "#ff00aa", bg: "#14000b",
-    desc: "Sube la torre: mueve con ← → ↑ ↓. Los bloques caen y se apilan. Sube hasta la cima.",
+    desc: "Sube la torre: ← → mover, ↑ subir, ↓ bajar. Si un bloque cae encima, ¡estás aplastado!",
     gravity: { x: 0, y: 0 },
     phrases: ["It's a nightmare", "Don't look down", "Love is over", "What do you desire?", "Will you climb?"],
     winCondition: "stackTower", music: "music/catherine.mp3" },
@@ -77,7 +77,7 @@ let escapeZone = { x: 0, y: 0, w: 220, h: 160 };
 
 // Catherine
 let catherineState = {
-  cellSize: 60,
+  cellSize: 55,
   cols: 9,
   rows: 10,
   offsetX: 0,
@@ -85,11 +85,13 @@ let catherineState = {
   grid: [],
   fallingBlocks: [],
   letterCol: 4,
-  letterRow: 9,
+  letterRow: 8,
   moveCooldown: 0,
-  spawnInterval: 2200,
+  spawnInterval: 1400,
   lastSpawn: 0,
-  maxHeightReached: 0
+  maxHeightReached: 0,
+  gameOver: false,
+  gameOverTimer: 0
 };
 
 // Metaphor
@@ -212,6 +214,8 @@ function resetWorld() {
   metaphorBattle.active = false;
   catherineState.grid = [];
   catherineState.fallingBlocks = [];
+  catherineState.gameOver = false;
+  catherineState.gameOverTimer = 0;
   document.getElementById('p4-hud').classList.add('hidden');
   document.getElementById('catherine-hud').classList.add('hidden');
 }
@@ -676,15 +680,15 @@ function drawEscapeZone() {
 }
 
 // ==========================================
-// CATHERINE — con flechas ↑ ↓
+// CATHERINE — REESCRITO DESDE CERO
 // ==========================================
 function initCatherine() {
-  const cs = 60;
-  catherineState.cellSize = cs;
+  catherineState.cellSize = 55;
   catherineState.cols = 9;
   catherineState.rows = 10;
-  catherineState.offsetX = (width - catherineState.cols * cs) / 2;
-  catherineState.offsetY = height - catherineState.rows * cs - 100;
+
+  catherineState.offsetX = (width - catherineState.cols * catherineState.cellSize) / 2;
+  catherineState.offsetY = height - catherineState.rows * catherineState.cellSize - 120;
 
   catherineState.grid = [];
   for (let c = 0; c < catherineState.cols; c++) {
@@ -694,62 +698,64 @@ function initCatherine() {
     }
   }
 
+  // Piso
   for (let c = 0; c < catherineState.cols; c++) {
     catherineState.grid[c][catherineState.rows - 1] = 'floor';
   }
 
-  catherineState.letterCol = floor(catherineState.cols / 2);
+  // Letra abajo centro
+  catherineState.letterCol = 4;
   catherineState.letterRow = catherineState.rows - 2;
-  catherineState.grid[catherineState.letterCol][catherineState.letterRow] = 'letter';
+  catherineState.grid[4][catherineState.rows - 2] = 'letter';
 
   catherineState.fallingBlocks = [];
-  catherineState.lastSpawn = millis() - 2200; // Primer bloque cae YA
-  catherineState.spawnInterval = 2200;
   catherineState.moveCooldown = 0;
+  catherineState.spawnInterval = 1400;
+  catherineState.lastSpawn = millis() - 1400;
   catherineState.maxHeightReached = 0;
+  catherineState.gameOver = false;
+  catherineState.gameOverTimer = 0;
 }
 
 function updateCatherine(dt) {
-  catherineState.moveCooldown -= dt;
-  if (catherineState.moveCooldown <= 0) {
-    if (keyIsDown(LEFT_ARROW)) {
-      moveCatherineLetter(-1);
-      catherineState.moveCooldown = 140;
+  if (catherineState.gameOver) {
+    catherineState.gameOverTimer -= dt;
+    if (catherineState.gameOverTimer <= 0) {
+      initCatherine();
     }
-    if (keyIsDown(RIGHT_ARROW)) {
-      moveCatherineLetter(1);
-      catherineState.moveCooldown = 140;
-    }
-    if (keyIsDown(UP_ARROW)) {
-      moveCatherineLetterUp();
-      catherineState.moveCooldown = 180;
-    }
-    if (keyIsDown(DOWN_ARROW)) {
-      moveCatherineLetterDown();
-      catherineState.moveCooldown = 180;
-    }
+    return;
   }
 
-  // Bloques cayendo
-  for (let b of catherineState.fallingBlocks) {
+  catherineState.moveCooldown -= dt;
+  if (catherineState.moveCooldown <= 0) {
+    if (keyIsDown(LEFT_ARROW)) { moveCatherineLetter(-1); catherineState.moveCooldown = 150; }
+    if (keyIsDown(RIGHT_ARROW)) { moveCatherineLetter(1); catherineState.moveCooldown = 150; }
+    if (keyIsDown(UP_ARROW)) { moveCatherineLetterUp(); catherineState.moveCooldown = 200; }
+    if (keyIsDown(DOWN_ARROW)) { moveCatherineLetterDown(); catherineState.moveCooldown = 200; }
+  }
+
+  for (let i = catherineState.fallingBlocks.length - 1; i >= 0; i--) {
+    let b = catherineState.fallingBlocks[i];
     b.y += b.speed;
     if (b.y >= b.targetY) {
+      if (catherineState.grid[b.col][b.row] === 'letter') {
+        catherineState.gameOver = true;
+        catherineState.gameOverTimer = 1500;
+        catherineState.fallingBlocks.splice(i, 1);
+        continue;
+      }
       if (catherineState.grid[b.col][b.row] === null) {
         catherineState.grid[b.col][b.row] = 'block';
       }
-      b.done = true;
+      catherineState.fallingBlocks.splice(i, 1);
     }
   }
-  catherineState.fallingBlocks = catherineState.fallingBlocks.filter(b => !b.done);
 
-  // Spawn
   if (millis() - catherineState.lastSpawn > catherineState.spawnInterval) {
     spawnCatherineBlock();
     catherineState.lastSpawn = millis();
-    catherineState.spawnInterval = max(900, catherineState.spawnInterval - 80);
   }
 
-  // Auto-subida si hay bloque debajo
   let belowRow = catherineState.letterRow + 1;
   if (belowRow < catherineState.rows &&
       catherineState.grid[catherineState.letterCol][belowRow] === 'block') {
@@ -758,7 +764,7 @@ function updateCatherine(dt) {
       catherineState.grid[catherineState.letterCol][catherineState.letterRow] = null;
       catherineState.letterRow -= 1;
       catherineState.grid[catherineState.letterCol][catherineState.letterRow] = 'letter';
-      catherineState.maxHeightReached = max(catherineState.maxHeightReached, catherineState.rows - catherineState.letterRow);
+      catherineState.maxHeightReached = max(catherineState.maxHeightReached, catherineState.rows - 1 - catherineState.letterRow);
     }
   }
 
@@ -779,30 +785,19 @@ function moveCatherineLetter(dir) {
 function moveCatherineLetterUp() {
   let newRow = catherineState.letterRow - 1;
   if (newRow < 0) return;
-  // Requiere bloque o piso debajo
+
   let belowRow = catherineState.letterRow + 1;
-  if (belowRow < catherineState.rows) {
-    let belowCell = catherineState.grid[catherineState.letterCol][belowRow];
-    if (belowCell !== 'block' && belowCell !== 'floor') return;
-  }
+  let belowCell = (belowRow < catherineState.rows)
+    ? catherineState.grid[catherineState.letterCol][belowRow]
+    : 'floor';
+
+  if (belowCell !== 'block' && belowCell !== 'floor') return;
   if (catherineState.grid[catherineState.letterCol][newRow] !== null) return;
+
   catherineState.grid[catherineState.letterCol][catherineState.letterRow] = null;
   catherineState.letterRow = newRow;
   catherineState.grid[catherineState.letterCol][catherineState.letterRow] = 'letter';
-  catherineState.maxHeightReached = max(catherineState.maxHeightReached, catherineState.rows - catherineState.letterRow);
-
-  for (let i = 0; i < 12; i++) {
-    particles.push({
-      type: 'rune',
-      pos: {
-        x: catherineState.offsetX + catherineState.letterCol * catherineState.cellSize + catherineState.cellSize / 2,
-        y: catherineState.offsetY + catherineState.letterRow * catherineState.cellSize + catherineState.cellSize / 2
-      },
-      vel: { x: random(-2, 2), y: random(-3, -1) },
-      life: 40,
-      char: random(["✦", "◆", "✧"])
-    });
-  }
+  catherineState.maxHeightReached = max(catherineState.maxHeightReached, catherineState.rows - 1 - catherineState.letterRow);
 }
 
 function moveCatherineLetterDown() {
@@ -815,13 +810,13 @@ function moveCatherineLetterDown() {
 }
 
 function spawnCatherineBlock() {
-  let availableCols = [];
+  let cols = [];
   for (let c = 0; c < catherineState.cols; c++) {
-    if (catherineState.grid[c][0] === null) availableCols.push(c);
+    if (catherineState.grid[c][0] === null) cols.push(c);
   }
-  if (availableCols.length === 0) return;
+  if (cols.length === 0) return;
 
-  let col = availableCols[floor(random(availableCols.length))];
+  let col = cols[floor(random(cols.length))];
 
   let targetRow = -1;
   for (let r = catherineState.rows - 1; r >= 0; r--) {
@@ -836,10 +831,9 @@ function spawnCatherineBlock() {
   catherineState.fallingBlocks.push({
     col: col,
     row: targetRow,
-    y: catherineState.offsetY - 100,
+    y: catherineState.offsetY - 60,
     targetY: catherineState.offsetY + targetRow * catherineState.cellSize,
-    speed: 6,
-    done: false
+    speed: 8
   });
 }
 
@@ -848,29 +842,31 @@ function drawCatherineTower() {
   const ox = catherineState.offsetX;
   const oy = catherineState.offsetY;
 
+  // Marco
   push();
-  rectMode(CORNER);
   noStroke();
-  fill(20, 0, 15, 200);
+  fill(20, 0, 15, 220);
   rect(ox - 10, oy - 10, catherineState.cols * cs + 20, catherineState.rows * cs + 20, 8);
-  stroke(255, 0, 170, 100);
+  stroke(255, 0, 170, 150);
   strokeWeight(2);
   noFill();
   rect(ox - 10, oy - 10, catherineState.cols * cs + 20, catherineState.rows * cs + 20, 8);
   pop();
 
+  // Cuadrícula
   push();
   for (let c = 0; c < catherineState.cols; c++) {
     for (let r = 0; r < catherineState.rows; r++) {
-      let x = ox + c * cs;
-      let y = oy + r * cs;
       noFill();
-      stroke(255, 0, 170, 20);
+      stroke(255, 0, 170, 25);
       strokeWeight(1);
-      rect(x, y, cs, cs);
+      rect(ox + c * cs, oy + r * cs, cs, cs);
     }
   }
+  pop();
 
+  // Celdas
+  push();
   for (let c = 0; c < catherineState.cols; c++) {
     for (let r = 0; r < catherineState.rows; r++) {
       let cell = catherineState.grid[c][r];
@@ -878,7 +874,11 @@ function drawCatherineTower() {
       let x = ox + c * cs;
       let y = oy + r * cs;
 
-      if (cell === 'block') {
+      if (cell === 'floor') {
+        noStroke();
+        fill(255, 0, 170, 90);
+        rect(x + 2, y + 2, cs - 4, cs - 4, 4);
+      } else if (cell === 'block') {
         noStroke();
         fill(255, 0, 170, 200);
         rect(x + 2, y + 2, cs - 4, cs - 4, 4);
@@ -886,14 +886,10 @@ function drawCatherineTower() {
         strokeWeight(2);
         noFill();
         rect(x + 2, y + 2, cs - 4, cs - 4, 4);
-        stroke(255, 100, 200, 100);
+        stroke(255, 100, 200, 150);
         strokeWeight(1);
         line(x + 8, y + 8, x + cs - 8, y + cs - 8);
         line(x + 8, y + cs - 8, x + cs - 8, y + 8);
-      } else if (cell === 'floor') {
-        noStroke();
-        fill(255, 0, 170, 80);
-        rect(x + 2, y + 2, cs - 4, cs - 4, 4);
       } else if (cell === 'letter') {
         noStroke();
         fill(20, 0, 15);
@@ -911,7 +907,10 @@ function drawCatherineTower() {
       }
     }
   }
+  pop();
 
+  // Bloques cayendo
+  push();
   for (let b of catherineState.fallingBlocks) {
     let x = ox + b.col * cs;
     let y = b.y;
@@ -925,21 +924,40 @@ function drawCatherineTower() {
   }
   pop();
 
+  // Instrucciones
   push();
   fill(255, 0, 170, 220);
   noStroke();
   textAlign(CENTER, CENTER);
-  textSize(14);
+  textSize(13);
   textFont('JetBrains Mono');
   text("← →  mover     ↑ subir     ↓ bajar", width / 2, oy + catherineState.rows * cs + 40);
   pop();
 
+  // Game Over
+  if (catherineState.gameOver) {
+    push();
+    fill(255, 0, 51, 150);
+    noStroke();
+    rect(0, 0, width, height);
+    textAlign(CENTER, CENTER);
+    textFont('Montserrat');
+    textSize(72);
+    fill(255);
+    text("¡APLASTADO!", width / 2, height / 2 - 40);
+    textSize(20);
+    fill(255, 220, 100);
+    text("Reiniciando...", width / 2, height / 2 + 40);
+    pop();
+  }
+
+  // HUD
   document.getElementById('cath-height').textContent =
-    `ALTURA: ${catherineState.maxHeightReached} / ${catherineState.rows - 2}`;
+    `ALTURA: ${catherineState.maxHeightReached} / ${catherineState.rows - 3}`;
 }
 
 // ==========================================
-// METAPHOR — BATALLA
+// METAPHOR
 // ==========================================
 function initMetaphorBattle() {
   metaphorBattle = {
@@ -1570,6 +1588,9 @@ function sealLetter(char) {
   } else if (gameState.currentDimension === 1) {
     px = tvLetterPos.x;
     py = tvLetterPos.y;
+  } else if (gameState.currentDimension === 3) {
+    px = width / 2;
+    py = height / 2;
   }
   letters = [];
 
