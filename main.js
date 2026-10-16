@@ -51,7 +51,7 @@ const DIMENSIONS = [
     winCondition: "defeatGorleo", music: "music/metaphor.mp3" }
 ];
 
-// P3 — Sombras
+// P3
 let isCharging = false;
 let chargeStart = 0;
 let chargePower = 0;
@@ -59,7 +59,7 @@ let shadows = [];
 let shadowsKilled = 0;
 const TOTAL_SHADOWS = 5;
 
-// P4 — TVs
+// P4
 let TVS = [];
 let tvLetterPos = { x: 0, y: 0 };
 let tvCurrentIndex = 0;
@@ -71,7 +71,7 @@ let tvVulnerableTimer = 0;
 let tvCooldown = 0;
 const TV_COOLDOWN = 500;
 
-// P5 — Mementos
+// P5
 let mementosWalls = [];
 let escapeZone = { x: 0, y: 0, w: 220, h: 160 };
 
@@ -87,22 +87,19 @@ let catherineState = {
   letterCol: 4,
   letterRow: 9,
   moveCooldown: 0,
-  spawnInterval: 2400,
+  spawnInterval: 1500,
   lastSpawn: 0,
   maxHeightReached: 0,
   gameOver: false,
   gameOverTimer: 0
 };
 
-// Metaphor — Battle
+// Metaphor
 let metaphorBattle = {
   active: false,
-  playerHP: 100,
-  playerMaxHP: 100,
-  potions: 2,
-  turn: 0,
-  turnIcons: 1,
-  maxTurnIcons: 2,
+  playerHP: 100, playerMaxHP: 100,
+  potions: 2, turn: 0,
+  turnIcons: 1, maxTurnIcons: 2,
   phase: 'player',
   boss: {
     hp: 100, maxHp: 100,
@@ -196,13 +193,17 @@ function setupWorldSelect() {
     gameUI.classList.add('hidden');
   });
 
-  // Teclado global (Catherine y Metaphor)
+  // Teclado global
   window.addEventListener('keydown', (e) => {
     if (!gameState.started) return;
     if (gameState.currentDimension === 3) {
       if (e.code === 'Space') {
         e.preventDefault();
         moveCatherineLetterUp();
+      }
+      if (e.code === 'ArrowDown') {
+        e.preventDefault();
+        moveCatherineLetterDown();
       }
     }
     if (gameState.currentDimension === 4) {
@@ -332,7 +333,7 @@ function createLetters() {
 
   let x = width / 2, y = height / 2;
   if (gameState.currentDimension === 0) { x = width / 2; y = height / 2; }
-  if (gameState.currentDimension === 2) { x = width * 0.15; y = height * 0.15; }
+  if (gameState.currentDimension === 2) { x = width * 0.15; y = height * 0.20; }
 
   let body = Bodies.rectangle(x, y, 60, 80, {
     restitution: 0.6, friction: 0.05, density: 0.002
@@ -455,7 +456,6 @@ function drawShadows() {
     s.y = centerY + sin(s.angle) * s.dist;
     s.pulse += 0.05;
     let pl = sin(s.pulse) * 5;
-
     for (let t = 1; t <= 5; t++) {
       let pastAngle = s.angle - s.orbitSpeed * t * 8;
       let px = centerX + cos(pastAngle) * s.dist;
@@ -464,36 +464,27 @@ function drawShadows() {
       noStroke();
       ellipse(px, py, s.r * 2 - t * 8, s.r * 2 - t * 8);
     }
-
     fill(0, 0, 0, 220);
     noStroke();
     ellipse(s.x, s.y, s.r * 2 + pl, s.r * 2 + pl);
-
     noFill();
     stroke(255, 0, 51, 180 + sin(s.pulse * 2) * 75);
     strokeWeight(2);
     ellipse(s.x, s.y, s.r * 2 + 14 + pl, s.r * 2 + 14 + pl);
-
     fill(255, 0, 51);
     noStroke();
     ellipse(s.x - 8, s.y - 4, 7, 9);
     ellipse(s.x + 8, s.y - 4, 7, 9);
-    fill(255, 200, 200, 200);
-    ellipse(s.x - 8, s.y - 5, 3, 3);
-    ellipse(s.x + 8, s.y - 5, 3, 3);
   }
   pop();
 
   push();
   textAlign(CENTER, CENTER);
   textFont('Montserrat');
-  textSize(18);
-  fill(0, 153, 255, 200);
+  textSize(16);
+  fill(0, 153, 255, 220);
   noStroke();
-  text(`SOMBRAS  ${shadowsKilled} / ${TOTAL_SHADOWS}`, width / 2, 255);
-  stroke(0, 153, 255, 100);
-  strokeWeight(1);
-  line(width / 2 - 80, 275, width / 2 + 80, 275);
+  text(`SOMBRAS: ${shadowsKilled} / ${TOTAL_SHADOWS}`, width / 2, 260);
   pop();
 }
 
@@ -550,18 +541,18 @@ function shootAtShadow() {
 }
 
 // ==========================================
-// P4 — TVs
+// P4 — TVs (bien espaciados)
 // ==========================================
 function setupTVs() {
   TVS = [];
-  const padX = 220;
-  const padTop = 260;
-  const yBottom = height - 420;
-  TVS.push({ x: padX, y: padTop, r: 80 });
-  TVS.push({ x: width - padX, y: padTop, r: 80 });
-  TVS.push({ x: width / 2, y: height / 2 - 60, r: 90 });
-  TVS.push({ x: padX, y: yBottom, r: 80 });
-  TVS.push({ x: width - padX, y: yBottom, r: 80 });
+  const padX = 250;
+  const padTop = 280;
+  const yBottom = height - 480;
+  TVS.push({ x: padX, y: padTop, r: 75 });
+  TVS.push({ x: width - padX, y: padTop, r: 75 });
+  TVS.push({ x: width / 2, y: height / 2 - 30, r: 90 });
+  TVS.push({ x: padX, y: yBottom, r: 75 });
+  TVS.push({ x: width - padX, y: yBottom, r: 75 });
 }
 
 function createTVLetter() {
@@ -610,15 +601,15 @@ function drawTVWorld() {
     push();
     noStroke();
     fill(255, 0, 51, 220);
-    rect(width / 2 - 100, 300, 200 * cdRatio, 8, 4);
+    rect(width / 2 - 100, 340, 200 * cdRatio, 8, 4);
     noFill();
     stroke(255, 0, 51, 200);
     strokeWeight(1);
-    rect(width / 2 - 100, 300, 200, 8, 4);
+    rect(width / 2 - 100, 340, 200, 8, 4);
     fill(255, 0, 51, 200);
     textAlign(CENTER, CENTER);
     textSize(10);
-    text("COOLDOWN", width / 2, 285);
+    text("COOLDOWN", width / 2, 325);
     pop();
   }
 
@@ -652,12 +643,12 @@ function buildMementosLabyrinth() {
   const opts = { isStatic: true, friction: 0.3 };
   const w = width, h = height;
   const walls = [
-    Bodies.rectangle(w * 0.35, h * 0.30, w * 0.5, t, opts),
-    Bodies.rectangle(w * 0.10, h * 0.48, t, h * 0.3, opts),
-    Bodies.rectangle(w * 0.65, h * 0.55, w * 0.5, t, opts),
-    Bodies.rectangle(w * 0.90, h * 0.48, t, h * 0.28, opts),
-    Bodies.rectangle(w * 0.35, h * 0.75, w * 0.5, t, opts),
-    Bodies.rectangle(w * 0.10, h * 0.88, t, h * 0.2, opts),
+    Bodies.rectangle(w * 0.35, h * 0.32, w * 0.5, t, opts),
+    Bodies.rectangle(w * 0.10, h * 0.50, t, h * 0.3, opts),
+    Bodies.rectangle(w * 0.65, h * 0.56, w * 0.5, t, opts),
+    Bodies.rectangle(w * 0.90, h * 0.50, t, h * 0.28, opts),
+    Bodies.rectangle(w * 0.35, h * 0.76, w * 0.5, t, opts),
+    Bodies.rectangle(w * 0.10, h * 0.88, t, h * 0.18, opts),
     Bodies.rectangle(w * 0.55, h * 0.90, w * 0.3, t, opts)
   ];
   for (let wall of walls) { World.add(world, wall); mementosWalls.push(wall); }
@@ -701,15 +692,15 @@ function drawEscapeZone() {
 }
 
 // ==========================================
-// CATHERINE — TOWER
+// CATHERINE
 // ==========================================
 function initCatherine() {
-  const cs = 60;
+  const cs = 55;
   catherineState.cellSize = cs;
   catherineState.cols = 9;
-  catherineState.rows = 10;
+  catherineState.rows = 11;
   catherineState.offsetX = (width - catherineState.cols * cs) / 2;
-  catherineState.offsetY = height - catherineState.rows * cs - 100;
+  catherineState.offsetY = (height - catherineState.rows * cs) / 2 + 60;
 
   catherineState.grid = [];
   for (let c = 0; c < catherineState.cols; c++) {
@@ -728,8 +719,8 @@ function initCatherine() {
   catherineState.grid[catherineState.letterCol][catherineState.letterRow] = 'letter';
 
   catherineState.fallingBlocks = [];
-  catherineState.lastSpawn = millis();
-  catherineState.spawnInterval = 2400;
+  catherineState.lastSpawn = millis() - 1500;
+  catherineState.spawnInterval = 1500;
   catherineState.moveCooldown = 0;
   catherineState.maxHeightReached = 0;
   catherineState.gameOver = false;
@@ -741,19 +732,17 @@ function updateCatherine(dt) {
   if (catherineState.moveCooldown <= 0) {
     if (keyIsDown(LEFT_ARROW)) {
       moveCatherineLetter(-1);
-      catherineState.moveCooldown = 160;
+      catherineState.moveCooldown = 140;
     }
     if (keyIsDown(RIGHT_ARROW)) {
       moveCatherineLetter(1);
-      catherineState.moveCooldown = 160;
+      catherineState.moveCooldown = 140;
     }
   }
 
-  // Actualizar bloques cayendo
   for (let b of catherineState.fallingBlocks) {
     b.y += b.speed;
     if (b.y >= b.targetY) {
-      // ¿Cae sobre la letra? → GAME OVER
       if (catherineState.grid[b.col][b.row] === 'letter') {
         catherineState.gameOver = true;
         catherineState.gameOverTimer = 90;
@@ -768,7 +757,6 @@ function updateCatherine(dt) {
   }
   catherineState.fallingBlocks = catherineState.fallingBlocks.filter(b => !b.done);
 
-  // Timer de game over
   if (catherineState.gameOver) {
     catherineState.gameOverTimer--;
     if (catherineState.gameOverTimer <= 0) {
@@ -777,14 +765,12 @@ function updateCatherine(dt) {
     return;
   }
 
-  // Spawn
   if (millis() - catherineState.lastSpawn > catherineState.spawnInterval) {
     spawnCatherineBlock();
     catherineState.lastSpawn = millis();
-    catherineState.spawnInterval = max(900, catherineState.spawnInterval - 80);
+    catherineState.spawnInterval = max(800, catherineState.spawnInterval - 80);
   }
 
-  // Auto-subida
   let belowRow = catherineState.letterRow + 1;
   if (belowRow < catherineState.rows &&
       catherineState.grid[catherineState.letterCol][belowRow] === 'block') {
@@ -797,7 +783,6 @@ function updateCatherine(dt) {
     }
   }
 
-  // Victoria
   if (catherineState.letterRow <= 1 && !gameState.foundLetters['U']) {
     sealLetter('U');
   }
@@ -821,38 +806,38 @@ function moveCatherineLetterUp() {
   let belowCell = catherineState.grid[catherineState.letterCol][belowRow];
   if (belowCell !== 'block' && belowCell !== 'floor') return;
   if (catherineState.grid[catherineState.letterCol][newRow] !== null) return;
-
   catherineState.grid[catherineState.letterCol][catherineState.letterRow] = null;
   catherineState.letterRow = newRow;
   catherineState.grid[catherineState.letterCol][catherineState.letterRow] = 'letter';
   catherineState.maxHeightReached = max(catherineState.maxHeightReached, catherineState.rows - catherineState.letterRow);
+}
 
-  for (let i = 0; i < 15; i++) {
-    particles.push({
-      type: 'rune',
-      pos: {
-        x: catherineState.offsetX + catherineState.letterCol * catherineState.cellSize + catherineState.cellSize / 2,
-        y: catherineState.offsetY + catherineState.letterRow * catherineState.cellSize + catherineState.cellSize / 2
-      },
-      vel: { x: random(-2, 2), y: random(-3, -1) },
-      life: 40,
-      char: random(["✦", "◆", "✧"])
-    });
-  }
+function moveCatherineLetterDown() {
+  if (catherineState.gameOver) return;
+  let newRow = catherineState.letterRow + 1;
+  if (newRow >= catherineState.rows) return;
+  if (catherineState.grid[catherineState.letterCol][newRow] !== null) return;
+  catherineState.grid[catherineState.letterCol][catherineState.letterRow] = null;
+  catherineState.letterRow = newRow;
+  catherineState.grid[catherineState.letterCol][catherineState.letterRow] = 'letter';
 }
 
 function spawnCatherineBlock() {
   let availableCols = [];
   for (let c = 0; c < catherineState.cols; c++) {
-    if (catherineState.grid[c][0] === null) availableCols.push(c);
+    let topFree = false;
+    for (let r = 0; r < catherineState.rows; r++) {
+      if (catherineState.grid[c][r] === null) { topFree = true; break; }
+      if (catherineState.grid[c][r] !== null && catherineState.grid[c][r] !== 'floor') break;
+    }
+    if (topFree) availableCols.push(c);
   }
   if (availableCols.length === 0) return;
   let col = random(availableCols);
 
   let targetRow = -1;
   for (let r = catherineState.rows - 1; r >= 0; r--) {
-    let cell = catherineState.grid[col][r];
-    if (cell === null) { targetRow = r; }
+    if (catherineState.grid[col][r] === null) { targetRow = r; }
     else break;
   }
   if (targetRow < 0) return;
@@ -860,9 +845,9 @@ function spawnCatherineBlock() {
   catherineState.fallingBlocks.push({
     col: col,
     row: targetRow,
-    y: -80,
+    y: catherineState.offsetY - 80,
     targetY: catherineState.offsetY + targetRow * catherineState.cellSize,
-    speed: 5,
+    speed: 6,
     done: false
   });
 }
@@ -875,12 +860,12 @@ function drawCatherineTower() {
   push();
   rectMode(CORNER);
   noStroke();
-  fill(20, 0, 15, 200);
-  rect(ox - 10, oy - 10, catherineState.cols * cs + 20, catherineState.rows * cs + 20, 8);
-  stroke(255, 0, 170, 100);
+  fill(20, 0, 15, 220);
+  rect(ox - 12, oy - 12, catherineState.cols * cs + 24, catherineState.rows * cs + 24, 8);
+  stroke(255, 0, 170, 150);
   strokeWeight(2);
   noFill();
-  rect(ox - 10, oy - 10, catherineState.cols * cs + 20, catherineState.rows * cs + 20, 8);
+  rect(ox - 12, oy - 12, catherineState.cols * cs + 24, catherineState.rows * cs + 24, 8);
   pop();
 
   push();
@@ -889,7 +874,7 @@ function drawCatherineTower() {
       let x = ox + c * cs;
       let y = oy + r * cs;
       noFill();
-      stroke(255, 0, 170, 20);
+      stroke(255, 0, 170, 30);
       strokeWeight(1);
       rect(x, y, cs, cs);
     }
@@ -901,7 +886,6 @@ function drawCatherineTower() {
       if (cell === null) continue;
       let x = ox + c * cs;
       let y = oy + r * cs;
-
       if (cell === 'block') {
         noStroke();
         fill(255, 0, 170, 200);
@@ -916,7 +900,7 @@ function drawCatherineTower() {
         line(x + 8, y + cs - 8, x + cs - 8, y + 8);
       } else if (cell === 'floor') {
         noStroke();
-        fill(255, 0, 170, 80);
+        fill(255, 0, 170, 100);
         rect(x + 2, y + 2, cs - 4, cs - 4, 4);
       } else if (cell === 'letter') {
         noStroke();
@@ -953,9 +937,9 @@ function drawCatherineTower() {
   fill(255, 0, 170, 220);
   noStroke();
   textAlign(CENTER, CENTER);
-  textSize(14);
+  textSize(13);
   textFont('JetBrains Mono');
-  text("← →  mover     ESPACIO  subir", width / 2, oy + catherineState.rows * cs + 40);
+  text("← → mover   ↑ ESPACIO   ↓ bajar", width / 2, oy + catherineState.rows * cs + 40);
   pop();
 
   if (catherineState.gameOver) {
@@ -1028,13 +1012,13 @@ function drawMetaphorBattle() {
     stroke(230, 184, 0, 30 - i * 8);
     strokeWeight(2 + i);
     drawingContext.setLineDash([15 - i * 3, 10]);
-    ellipse(width / 2, height / 2 + 30, (circleR + i * 25) * 2, (circleR + i * 25) * 2);
+    ellipse(width / 2, height / 2, (circleR + i * 25) * 2, (circleR + i * 25) * 2);
     drawingContext.setLineDash([]);
   }
   for (let i = 0; i < 12; i++) {
     let angle = (TWO_PI / 12) * i + frameCount * 0.005;
     let sx = width / 2 + cos(angle) * circleR;
-    let sy = height / 2 + 30 + sin(angle) * circleR;
+    let sy = height / 2 + sin(angle) * circleR;
     fill(230, 184, 0, 180 + sin(frameCount * 0.05 + i) * 75);
     noStroke();
     textAlign(CENTER, CENTER);
@@ -1057,9 +1041,6 @@ function drawMetaphorBattle() {
       ellipse(ax, ay, 28, 28);
       fill(255, 200, 200, 200);
       ellipse(ax - 6, ay - 6, 8, 8);
-      stroke(80, 50, 20);
-      strokeWeight(2);
-      line(ax, ay - 14, ax + 3, ay - 20);
     }
     fill(255, 200, 0);
     textAlign(CENTER, CENTER);
@@ -1070,14 +1051,14 @@ function drawMetaphorBattle() {
   }
 
   push();
-  translate(width / 2, height / 2 + 30);
+  translate(width / 2, height / 2);
   let sPulse = 200 + sin(frameCount * 0.05) * 55;
   fill(230, 184, 0, sPulse);
   noStroke();
   textAlign(CENTER, CENTER);
   textFont('Montserrat');
   textSize(64);
-  text("S", 0, 0);
+  text("S", 0, 120);
   pop();
 
   drawBattlePanel();
@@ -1125,58 +1106,123 @@ function drawHomoGorleo(cx, cy) {
   push();
   translate(cx, cy);
 
-  for (let i = 0; i < 3; i++) {
-    fill(120, 60, 150, 15 - i * 4);
+  // Aura oscura
+  for (let i = 0; i < 4; i++) {
+    fill(120, 40, 150, 12 - i * 3);
     noStroke();
-    ellipse(0, 0, 200 + i * 40, 200 + i * 40);
+    ellipse(0, 0, 240 + i * 40, 240 + i * 40);
   }
 
-  let bodyAlpha = map(b.hp, 0, b.maxHp, 80, 240);
-  let bodyGrad = drawingContext.createRadialGradient(0, 0, 0, 0, 0, 90);
-  bodyGrad.addColorStop(0, `rgba(180, 100, 220, ${bodyAlpha / 255})`);
+  // Patas
+  push();
+  fill(100, 50, 130, 220);
+  noStroke();
+  ellipse(-60, 90, 60, 40);
+  ellipse(60, 90, 60, 40);
+  pop();
+
+  // Cuerpo con gradiente
+  let bodyAlpha = map(b.hp, 0, b.maxHp, 100, 255);
+  let bodyGrad = drawingContext.createRadialGradient(-20, -20, 10, 0, 0, 100);
+  bodyGrad.addColorStop(0, `rgba(200, 130, 240, ${bodyAlpha / 255})`);
+  bodyGrad.addColorStop(0.7, `rgba(130, 70, 180, ${bodyAlpha / 255})`);
   bodyGrad.addColorStop(1, `rgba(60, 20, 90, ${bodyAlpha / 255})`);
   drawingContext.fillStyle = bodyGrad;
   stroke(200, 120, 220, 255);
   strokeWeight(3);
-  ellipse(0, 0, 170, 170);
+  ellipse(0, 0, 180, 180);
 
+  // Textura de pelaje
+  push();
+  noFill();
+  stroke(180, 100, 220, 100);
+  strokeWeight(1);
+  for (let i = 0; i < 12; i++) {
+    let a = (TWO_PI / 12) * i;
+    let x1 = cos(a) * 60;
+    let y1 = sin(a) * 60;
+    let x2 = cos(a) * 85;
+    let y2 = sin(a) * 85;
+    line(x1, y1, x2, y2);
+  }
+  pop();
+
+  // Cabeza más grande
+  push();
+  fill(150, 80, 190, bodyAlpha);
+  noStroke();
+  ellipse(0, -30, 130, 120);
+  // Ceño furioso
+  fill(80, 30, 110, bodyAlpha);
+  ellipse(-25, -50, 30, 15);
+  ellipse(25, -50, 30, 15);
+  pop();
+
+  // Ojos con brillo
   fill(255, 0, 51);
   noStroke();
-  ellipse(-32, -22, 22, 28);
-  ellipse(32, -22, 22, 28);
-  fill(255, 200, 200, 200);
-  ellipse(-32, -25, 8, 8);
-  ellipse(32, -25, 8, 8);
-  fill(0);
-  ellipse(-32, -22, 6, 10);
-  ellipse(32, -22, 6, 10);
+  ellipse(-30, -35, 26, 32);
+  ellipse(30, -35, 26, 32);
+  fill(255, 220, 220, 220);
+  ellipse(-32, -38, 10, 10);
+  ellipse(28, -38, 10, 10);
+  fill(20, 0, 0);
+  ellipse(-30, -33, 8, 12);
+  ellipse(30, -33, 8, 12);
 
-  stroke(255, 0, 51, 220);
+  // Cuernos
+  push();
+  fill(80, 30, 110);
+  noStroke();
+  triangle(-50, -80, -60, -130, -30, -100);
+  triangle(50, -80, 60, -130, 30, -100);
+  pop();
+
+  // Fauces
+  stroke(255, 0, 51, 240);
   strokeWeight(4);
   noFill();
-  arc(0, 22, 70, 35, 0, PI);
+  arc(0, 5, 70, 40, 0, PI);
 
+  // Colmillos
+  push();
+  fill(255);
+  noStroke();
+  triangle(-25, 10, -18, 30, -32, 30);
+  triangle(25, 10, 18, 30, 32, 30);
+  pop();
+
+  // Ala
   if (!b.wingDestroyed) {
     push();
-    translate(75, -65);
-    rotate(sin(frameCount * 0.05) * 0.15 - 0.3);
-    fill(200, 120, 220, 50);
-    noStroke();
-    ellipse(0, 0, 90, 130);
-    fill(150, 80, 180, 220);
-    stroke(200, 120, 220, 255);
+    translate(80, -70);
+    rotate(sin(frameCount * 0.06) * 0.2 - 0.4);
+    // Forma con curvas
+    fill(180, 100, 220, 180);
+    stroke(220, 140, 240, 255);
     strokeWeight(2);
-    ellipse(0, 0, 65, 105);
+    beginShape();
+    vertex(0, 0);
+    bezierVertex(40, -20, 60, -50, 30, -90);
+    bezierVertex(20, -100, 0, -90, -10, -70);
+    bezierVertex(-30, -40, -20, -10, 0, 0);
+    endShape(CLOSE);
+    // Huesos
+    stroke(240, 180, 255, 200);
+    strokeWeight(1);
+    line(0, 0, 25, -80);
+    line(0, 0, 40, -60);
+    // HP
     fill(255, 200, 0);
     noStroke();
     textAlign(CENTER, CENTER);
     textSize(13);
     textFont('JetBrains Mono');
-    text(b.wingHP, 0, 0);
+    text(b.wingHP, 15, -45);
     pop();
   } else {
     push();
-    translate(75, -65);
+    translate(80, -70);
     rotate(-0.6);
     fill(60, 30, 80, 100);
     noStroke();
@@ -1184,27 +1230,31 @@ function drawHomoGorleo(cx, cy) {
     pop();
   }
 
+  // Pierna
   if (!b.legDestroyed) {
     push();
-    translate(-65, 75);
+    translate(-70, 80);
     rotate(0.3);
-    fill(200, 120, 220, 50);
-    noStroke();
-    ellipse(0, 0, 80, 110);
-    fill(150, 80, 180, 220);
+    fill(150, 80, 190, 200);
     stroke(200, 120, 220, 255);
     strokeWeight(2);
-    ellipse(0, 0, 55, 85);
+    ellipse(0, 0, 60, 90);
+    // Garras
+    stroke(220, 200, 255, 255);
+    strokeWeight(3);
+    line(-15, 40, -20, 55);
+    line(0, 45, 0, 60);
+    line(15, 40, 20, 55);
     fill(255, 200, 0);
     noStroke();
     textAlign(CENTER, CENTER);
     textSize(13);
     textFont('JetBrains Mono');
-    text(b.legHP, 0, 0);
+    text(b.legHP, 0, -5);
     pop();
   } else {
     push();
-    translate(-65, 75);
+    translate(-70, 80);
     rotate(0.7);
     fill(60, 30, 80, 100);
     noStroke();
@@ -1212,27 +1262,28 @@ function drawHomoGorleo(cx, cy) {
     pop();
   }
 
+  // HP Bar
   let hpRatio = b.hp / b.maxHp;
   push();
   noStroke();
   fill(20, 20, 20, 220);
-  rect(-90, -120, 180, 14, 7);
-  let grad = drawingContext.createLinearGradient(-90, 0, 90, 0);
+  rect(-95, -135, 190, 16, 8);
+  let grad = drawingContext.createLinearGradient(-95, 0, 95, 0);
   grad.addColorStop(0, '#ff0033');
   grad.addColorStop(1, '#ff0088');
   drawingContext.fillStyle = grad;
-  rect(-90, -120, 180 * hpRatio, 14, 7);
+  rect(-95, -135, 190 * hpRatio, 16, 8);
   stroke(255, 0, 51, 200);
   strokeWeight(1);
   noFill();
-  rect(-90, -120, 180, 14, 7);
+  rect(-95, -135, 190, 16, 8);
   pop();
 
   fill(255, 220, 220);
   textAlign(CENTER, CENTER);
   textSize(11);
   textFont('JetBrains Mono');
-  text(`HOMO GORLEO  ·  ${b.hp} / ${b.maxHp}`, 0, -100);
+  text(`HOMO GORLEO · ${b.hp} / ${b.maxHp}`, 0, -115);
 
   if (metaphorBattle.selectedTarget === 'body') {
     push();
@@ -1240,7 +1291,7 @@ function drawHomoGorleo(cx, cy) {
     stroke(255, 200, 0, 200 + sin(frameCount * 0.1) * 55);
     strokeWeight(2);
     drawingContext.setLineDash([8, 6]);
-    ellipse(0, 0, 200, 200);
+    ellipse(0, 0, 220, 220);
     drawingContext.setLineDash([]);
     pop();
   }
@@ -1261,9 +1312,6 @@ function drawBattlePanel() {
 
   stroke(230, 184, 0, 200);
   strokeWeight(2);
-  line(0, panelY, width, panelY);
-  stroke(230, 184, 0, 60);
-  strokeWeight(8);
   line(0, panelY, width, panelY);
 
   push();
@@ -1333,7 +1381,7 @@ function drawBattlePanel() {
     metaphorBattle.messageTimer--;
     textAlign(CENTER, CENTER);
     textFont('Montserrat');
-    textSize(28);
+    textSize(26);
     fill(230, 184, 0, min(255, metaphorBattle.messageTimer * 5));
     noStroke();
     text(metaphorBattle.message, width / 2, panelY - 50);
@@ -1514,19 +1562,19 @@ function handleMetaphorClick(mx, my) {
   let bx = width / 2;
   let by = height / 2 - 60;
 
-  if (!metaphorBattle.boss.wingDestroyed && dist(mx, my, bx + 75, by - 65) < 40) {
+  if (!metaphorBattle.boss.wingDestroyed && dist(mx, my, bx + 80, by - 70) < 45) {
     metaphorBattle.selectedTarget = 'wing';
     metaphorBattle.message = 'OBJETIVO: Ala';
     metaphorBattle.messageTimer = 60;
     return;
   }
-  if (!metaphorBattle.boss.legDestroyed && dist(mx, my, bx - 65, by + 75) < 40) {
+  if (!metaphorBattle.boss.legDestroyed && dist(mx, my, bx - 70, by + 80) < 45) {
     metaphorBattle.selectedTarget = 'leg';
     metaphorBattle.message = 'OBJETIVO: Pierna';
     metaphorBattle.messageTimer = 60;
     return;
   }
-  if (dist(mx, my, bx, by) < 80) {
+  if (dist(mx, my, bx, by) < 90) {
     metaphorBattle.selectedTarget = 'body';
     metaphorBattle.message = 'OBJETIVO: Cuerpo';
     metaphorBattle.messageTimer = 60;
@@ -1744,12 +1792,6 @@ function drawAmbientEffects() {
       strokeWeight(1);
       line(0, y, width, y);
     }
-    for (let i = 0; i < 5; i++) {
-      let fogY = (frameCount * 0.5 + i * 200) % (height + 400) - 200;
-      fill(255, 204, 0, 8);
-      noStroke();
-      ellipse(width / 2, fogY, width * 1.5, 300);
-    }
     pop();
   }
 
@@ -1760,12 +1802,6 @@ function drawAmbientEffects() {
     for (let i = 0; i < 12; i++) {
       let x = (frameCount * 3 + i * 150) % (width + 200) - 100;
       line(x, 0, x + 60, height);
-    }
-    if (frameCount % 30 === 0) {
-      stroke(255, 255, 255, 60);
-      strokeWeight(1);
-      let rx = random(width);
-      line(rx, 0, rx + 30, height);
     }
     pop();
   }
@@ -1892,7 +1928,7 @@ function spawnFloatingPhrases() {
     floatingPhrases.push({
       text: random(dim.phrases),
       x: random(100, width - 100),
-      y: random(150, height - 150),
+      y: random(300, height - 200),
       life: 300, maxLife: 300
     });
   }
@@ -1907,14 +1943,14 @@ function drawFloatingPhrases() {
   for (let i = floatingPhrases.length - 1; i >= 0; i--) {
     let fp = floatingPhrases[i];
     let alpha = map(fp.life, 0, fp.maxLife, 0, 120);
-    fill(red(color(dim.color)), green(color(dim.color)), blue(color(dim.color)), alpha);
+    fill(red(color(dim.color)), green(color(color(dim.color))), blue(color(dim.color)), alpha);
     noStroke();
     text(`"${fp.text}"`, fp.x, fp.y + sin(frameCount * 0.02 + i) * 5);
     fp.life--;
     if (fp.life <= 0) {
       fp.text = random(dim.phrases);
       fp.x = random(100, width - 100);
-      fp.y = random(150, height - 150);
+      fp.y = random(300, height - 200);
       fp.life = fp.maxLife;
     }
   }
@@ -1942,7 +1978,6 @@ function drawConstraints() {
 // UI
 // ==========================================
 function updateWordBar() {
-  // Barra inferior
   document.querySelectorAll('.word-slot').forEach(slot => {
     const index = parseInt(slot.dataset.index);
     const letter = LETTER_ORDER[index];
@@ -1955,7 +1990,6 @@ function updateWordBar() {
     }
   });
 
-  // Brand superior
   let allFound = true;
   document.querySelectorAll('.brand-letter').forEach(el => {
     const index = parseInt(el.dataset.index);
