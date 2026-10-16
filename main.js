@@ -25,7 +25,7 @@ const gameState = {
 
 const DIMENSIONS = [
   {
-    name: "Persona 3: The Dark Hour",
+    name: "Mundo 01 · The Dark Hour",
     letterTarget: "A",
     color: "#0099ff",
     bg: "#050b14",
@@ -36,7 +36,7 @@ const DIMENSIONS = [
     music: "music/p3.mp3"
   },
   {
-    name: "Persona 4: The TV World",
+    name: "Mundo 02 · The TV World",
     letterTarget: "T",
     color: "#ffcc00",
     bg: "#1a1600",
@@ -47,7 +47,7 @@ const DIMENSIONS = [
     music: "music/p4.mp3"
   },
   {
-    name: "Persona 5: Metaverse Rebellion",
+    name: "Mundo 03 · The Metaverse",
     letterTarget: "L",
     color: "#ff0033",
     bg: "#120003",
@@ -58,22 +58,22 @@ const DIMENSIONS = [
     music: "music/p5.mp3"
   },
   {
-    name: "Catherine: Tower of Babel",
+    name: "Mundo 04 · Tower of Babel",
     letterTarget: "U",
     color: "#ff00aa",
     bg: "#14000b",
-    desc: "Mueve los bloques con el mouse para liberar la letra atrapada abajo.",
-    gravity: { x: 0, y: 1.5 },
+    desc: "Sube bloques: apila bloques con el mouse para elevar la letra hasta la cima de la torre.",
+    gravity: { x: 0, y: 1.2 },
     phrases: ["It's a nightmare", "Don't look down", "Love is over", "What do you desire?", "Will you climb?"],
-    winCondition: "freeU",
+    winCondition: "stackTower",
     music: "music/catherine.mp3"
   },
   {
-    name: "Metaphor: Archetype Threads",
+    name: "Mundo 05 · Archetype Threads",
     letterTarget: "S",
     color: "#e6b800",
     bg: "#0d0c03",
-    desc: "Haz clic en los 3 anclajes dorados para tensar los hilos y bajar la letra al centro.",
+    desc: "Tensa los hilos: haz clic en los 3 anclajes dorados para bajar la letra al centro.",
     gravity: { x: 0, y: -0.1 },
     phrases: ["The world is a story", "Fantasy lives on", "You are its author", "Who are you?", "What story will you write?"],
     winCondition: "connectThreads",
@@ -81,11 +81,12 @@ const DIMENSIONS = [
   }
 ];
 
-// Variables específicas
+// P3
 let isCharging = false;
 let chargeStart = 0;
 let chargePower = 0;
 
+// P4
 let TVS = [];
 let tvLetterPos = { x: 0, y: 0 };
 let tvCurrentIndex = 0;
@@ -95,7 +96,23 @@ let tvJumpSpeed = 2000;
 let tvVulnerable = false;
 let tvVulnerableTimer = 0;
 
+// P5
 let escapeZone = { x: 0, y: 0, w: 220, h: 160 };
+
+// Catherine
+let catherineState = {
+  towerBodies: [],
+  currentBlock: null,
+  blockQueue: [],
+  letterY: 0,
+  maxHeight: 0,
+  spawnInterval: 0,
+  lastSpawn: 0,
+  dragBlock: null,
+  dragOffset: { x: 0, y: 0 }
+};
+
+// Metaphor
 let anchors = [];
 
 // ==========================================
@@ -104,7 +121,6 @@ let anchors = [];
 function setup() {
   let canvas = createCanvas(windowWidth, windowHeight);
   canvas.parent("canvas-holder");
-  // Importante: dejar el canvas al fondo en el DOM
   canvas.elt.style.position = "fixed";
   canvas.elt.style.zIndex = "1";
 
@@ -161,7 +177,7 @@ function setupWorldSelect() {
   document.getElementById('toggle-music').addEventListener('click', () => {
     musicMuted = !musicMuted;
     if (bgMusic) bgMusic.setVolume(musicMuted ? 0 : 0.35);
-    document.getElementById('toggle-music').textContent = musicMuted ? "🔇 Música" : "🔊 Música";
+    document.getElementById('toggle-music').textContent = musicMuted ? "🔇" : "🔊";
   });
 
   document.getElementById('reset-all').addEventListener('click', () => {
@@ -192,7 +208,11 @@ function resetWorld() {
   chargePower = 0;
   tvHitCount = 0;
   tvVulnerable = false;
+  catherineState.towerBodies = [];
+  catherineState.currentBlock = null;
+  catherineState.blockQueue = [];
   document.getElementById('p4-hud').classList.add('hidden');
+  document.getElementById('catherine-hud').classList.add('hidden');
 }
 
 // ==========================================
@@ -230,24 +250,24 @@ function draw() {
 
   if (gameState.inHub) { drawHub(); return; }
 
+  drawAmbientEffects();
+  drawFloatingPhrases();
+
+  // P4 no usa Matter
   if (gameState.currentDimension === 1) {
-    drawAmbientEffects();
-    drawFloatingPhrases();
     drawTVWorld();
     drawParticles();
     return;
   }
 
   Engine.update(engine);
-  drawAmbientEffects();
-  drawFloatingPhrases();
   drawConstraints();
   drawParticles();
-
   for (let l of letters) l.display();
 
   if (gameState.currentDimension === 0) drawCharge();
   if (gameState.currentDimension === 2) drawEscapeZone();
+  if (gameState.currentDimension === 3) drawCatherineTower();
   if (gameState.currentDimension === 4) drawAnchors();
 
   checkLetterFound();
@@ -283,7 +303,7 @@ function createLetters() {
 
   if (gameState.currentDimension === 0) { x = width / 2 + 300; y = height / 2; }
   if (gameState.currentDimension === 2) { x = width - 300; y = 250; }
-  if (gameState.currentDimension === 3) { x = width / 2; y = height - 120; }
+  if (gameState.currentDimension === 3) { x = width / 2; y = height - 200; }
   if (gameState.currentDimension === 4) { x = width / 2; y = 200; }
 
   let body = Bodies.rectangle(x, y, 70, 90, {
@@ -316,23 +336,10 @@ function createLetters() {
     constraints.push(anchor);
     World.add(world, anchor);
   }
-
-  if (gameState.currentDimension === 3) {
-    for (let i = 0; i < 6; i++) {
-      let block = Bodies.rectangle(
-        width / 2 + random(-200, 200),
-        -100 - i * 80,
-        55, 55,
-        { friction: 0.5, density: 0.005, restitution: 0.1 }
-      );
-      World.add(world, block);
-      particles.push({ body: block, type: 'block', permanent: true });
-    }
-  }
 }
 
 // ==========================================
-// CLASE LETTER
+// LETTER
 // ==========================================
 class LetterBody {
   constructor(body, char, index) {
@@ -379,6 +386,16 @@ function applyDimension(index) {
   for (let l of letters) World.remove(world, l.body);
   letters = [];
 
+  // Resetear Catherine
+  if (index === 3) {
+    catherineState.towerBodies = [];
+    catherineState.currentBlock = null;
+    catherineState.lastSpawn = millis();
+    catherineState.spawnInterval = 1800;
+  } else {
+    document.getElementById('catherine-hud').classList.add('hidden');
+  }
+
   if (index === 1) {
     setupTVs();
     createTVLetter();
@@ -402,9 +419,10 @@ function applyDimension(index) {
   document.getElementById("goal-panel").style.borderLeftColor = dim.color;
   document.getElementById("goal-desc").innerText = dim.desc;
 
-  document.getElementById("world-badge-letter").textContent = dim.letterTarget;
-  document.getElementById("world-badge-letter").style.color = dim.color;
-  document.getElementById("world-badge-name").textContent = dim.name.split(":")[0];
+  // Badge: número y nombre, SIN letra revelada
+  const worldNum = String(index + 1).padStart(2, '0');
+  document.getElementById("world-badge-num").textContent = `MUNDO ${worldNum}`;
+  document.getElementById("world-badge-sub").textContent = dim.name.split("·")[1].trim();
 
   document.body.className = "cursor-" + ["p3","p4","p5","catherine","metaphor"][index];
 
@@ -486,7 +504,7 @@ function drawTVWorld() {
   textSize(64);
   fill(tvVulnerable ? "#ffffff" : "#ffcc00");
   noStroke();
-  text("T", tvLetterPos.x, tvLetterPos.y);
+  text("?", tvLetterPos.x, tvLetterPos.y); // Letra oculta: se muestra como "?" hasta sellar
   pop();
 
   if (!tvVulnerable && millis() - tvLastMove > tvJumpSpeed) {
@@ -526,6 +544,61 @@ function drawEscapeZone() {
   noStroke();
   textFont('Montserrat');
   text("ESCAPE", escapeZone.x + escapeZone.w / 2, escapeZone.y + escapeZone.h / 2);
+  pop();
+}
+
+// ==========================================
+// CATHERINE — Subir bloques
+// ==========================================
+function drawCatherineTower() {
+  // Fondo con rombos
+  // (ya está en drawAmbientEffects)
+
+  // Base
+  push();
+  noStroke();
+  fill(255, 0, 170, 40);
+  rect(0, height - 40, width, 40);
+  pop();
+
+  // HUD de altura
+  if (letters.length > 0) {
+    let letterY = letters[0].body.position.y;
+    let height = constrain(map(height - letterY, 0, height - 100, 0, 100), 0, 100);
+    document.getElementById('cath-height').textContent = `ALTURA: ${floor(height)}%`;
+  }
+
+  // Spawnear bloques
+  if (millis() - catherineState.lastSpawn > catherineState.spawnInterval) {
+    let block = Bodies.rectangle(
+      width / 2 + random(-300, 300),
+      -50,
+      60, 60,
+      { friction: 0.6, density: 0.005, restitution: 0.1 }
+    );
+    World.add(world, block);
+    catherineState.towerBodies.push(block);
+    catherineState.lastSpawn = millis();
+    catherineState.spawnInterval = max(600, catherineState.spawnInterval - 50);
+  }
+
+  // Dibujar bloques
+  push();
+  for (let b of catherineState.towerBodies) {
+    push();
+    translate(b.position.x, b.position.y);
+    rotate(b.angle);
+    rectMode(CENTER);
+    strokeWeight(2);
+    stroke("#ff00aa");
+    fill("#1a0015");
+    rect(0, 0, 60, 60, 4);
+    // Patrón
+    stroke(255, 0, 170, 100);
+    line(-30, -30, 30, 30);
+    line(-30, 30, 30, -30);
+    pop();
+  }
   pop();
 }
 
@@ -636,11 +709,12 @@ function checkLetterFound() {
               pos.y > escapeZone.y && pos.y < escapeZone.y + escapeZone.h;
       break;
     }
-    case "freeU": {
-      let bloquesCerca = particles.filter(p =>
-        p.permanent && dist(p.body.position.x, p.body.position.y, pos.x, pos.y) < 110
+    case "stackTower": {
+      // La letra debe estar arriba (y < height - 500) y la torre debe ser alta
+      let blocksAbove = catherineState.towerBodies.filter(b =>
+        b.position.y < pos.y && Math.abs(b.position.x - pos.x) < 200
       ).length;
-      found = pos.y > height - 200 && bloquesCerca === 0;
+      found = pos.y < height - 500 && blocksAbove >= 3;
       break;
     }
     case "connectThreads": {
@@ -662,7 +736,7 @@ function sealLetter(char) {
   localStorage.setItem('atlus_found', JSON.stringify(gameState.foundLetters));
 
   const dim = DIMENSIONS.find(d => d.letterTarget === char);
-  showNotification(`"${char}" — ${dim.name}`, dim.phrases[0]);
+  showNotification(`"${char}" — Descubierta`, "Una nueva letra se revela");
   updateWordBar();
 
   let px = width / 2, py = height / 2;
@@ -711,10 +785,10 @@ function goToHub() {
   document.getElementById("goal-panel").style.borderLeftColor = "#ffcc00";
   document.getElementById("goal-desc").innerText = "Cinco mundos. Una palabra. Tu turno.";
   document.getElementById("world-signature").innerHTML = "";
-  document.getElementById("world-badge-letter").textContent = "★";
-  document.getElementById("world-badge-letter").style.color = "#ffcc00";
-  document.getElementById("world-badge-name").textContent = "COMPLETE";
+  document.getElementById("world-badge-num").textContent = "COMPLETO";
+  document.getElementById("world-badge-sub").textContent = "★";
   document.getElementById("p4-hud").classList.add("hidden");
+  document.getElementById("catherine-hud").classList.add("hidden");
   document.body.className = "";
   stopMusic();
 }
@@ -762,10 +836,8 @@ function drawAmbientEffects() {
   let dim = DIMENSIONS[gameState.currentDimension];
 
   if (gameState.currentDimension === 0) {
-    // Luna Llena (sólida, no solo punteada)
     let pulse = sin(frameCount * 0.03) * 8;
     push();
-    // Círculo sólido con glow
     noStroke();
     fill(0, 153, 255, 30);
     ellipse(width / 2 - 240, height / 2, 180 + pulse, 180 + pulse);
@@ -773,8 +845,6 @@ function drawAmbientEffects() {
     ellipse(width / 2 - 240, height / 2, 150 + pulse * 0.5, 150 + pulse * 0.5);
     fill(180, 220, 255, 200);
     ellipse(width / 2 - 240, height / 2, 120, 120);
-
-    // Órbita punteada
     noFill();
     stroke(dim.color);
     strokeWeight(2);
@@ -809,7 +879,7 @@ function drawAmbientEffects() {
   if (gameState.currentDimension === 3) {
     push();
     noFill();
-    stroke(255, 0, 170, 15);
+    stroke(255, 0, 170, 20);
     strokeWeight(1);
     let offset = frameCount * 0.5;
     for (let x = -100; x < width + 100; x += 80) {
