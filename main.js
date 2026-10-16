@@ -13,6 +13,9 @@ let mouseConstraint;
 let bgMusic = null;
 let musicMuted = false;
 
+// Orden fijo de las letras (para saber qué slot llenar)
+const LETTER_ORDER = ["A", "T", "L", "U", "S"];
+
 // ==========================================
 // ESTADO GLOBAL
 // ==========================================
@@ -34,7 +37,7 @@ const DIMENSIONS = [
     color: "#0099ff",
     accent: "#00ffcc",
     bg: "#050b14",
-    desc: "Carga el Evoker: mantén el clic, apunta y suelta para disparar. Empuja la 'A' hacia la Luna Llena.",
+    desc: "Carga el Evoker: mantén el clic, apunta y suelta para disparar. Empuja la letra hacia la Luna Llena.",
     gravity: { x: 0, y: 0 },
     friction: 0.001,
     phrases: ["Memento Mori", "The Dark Hour", "Are you afraid of death?", "The clock is ticking", "Death is not the end"],
@@ -48,7 +51,7 @@ const DIMENSIONS = [
     color: "#ffcc00",
     accent: "#ff8800",
     bg: "#1a1600",
-    desc: "La 'T' salta entre televisores. Haz clic en el TV correcto cuando esté dentro para sintonizarla 5 veces.",
+    desc: "La letra salta entre televisores. Haz clic en el TV correcto cuando esté dentro para sintonizarla 5 veces.",
     gravity: { x: 0, y: 0 },
     friction: 0,
     phrases: ["Reach out to the truth", "I am thou", "Thou art I", "Can you see through the fog?", "The truth is out there"],
@@ -62,7 +65,7 @@ const DIMENSIONS = [
     color: "#ff0033",
     accent: "#ffffff",
     bg: "#120003",
-    desc: "Roba el corazón: arrastra la 'L' hasta la zona de escape en la esquina inferior derecha.",
+    desc: "Roba el corazón: arrastra la letra hasta la zona de escape en la esquina inferior derecha.",
     gravity: { x: 0, y: 0.5 },
     friction: 0.01,
     phrases: ["You'll never see it coming", "Take your heart", "Wake up, get up, get out there", "Are you free?", "Steal back your future"],
@@ -76,7 +79,7 @@ const DIMENSIONS = [
     color: "#ff00aa",
     accent: "#ffffff",
     bg: "#14000b",
-    desc: "Mueve los bloques con el mouse para liberar la 'U' atrapada abajo. Debe quedar sin bloques cerca.",
+    desc: "Mueve los bloques con el mouse para liberar la letra atrapada abajo. Debe quedar sin bloques cerca.",
     gravity: { x: 0, y: 1.5 },
     friction: 0.4,
     phrases: ["It's a nightmare", "Don't look down", "Love is over", "What do you desire?", "Will you climb?"],
@@ -90,7 +93,7 @@ const DIMENSIONS = [
     color: "#e6b800",
     accent: "#ffdd44",
     bg: "#0d0c03",
-    desc: "Haz clic en los 3 anclajes dorados para tensar los hilos y bajar la 'S' al centro.",
+    desc: "Haz clic en los 3 anclajes dorados para tensar los hilos y bajar la letra al centro.",
     gravity: { x: 0, y: -0.1 },
     friction: 0.02,
     phrases: ["The world is a story", "Fantasy lives on", "You are its author", "Who are you?", "What story will you write?"],
@@ -101,15 +104,12 @@ const DIMENSIONS = [
 ];
 
 // ==========================================
-// VARIABLES ESPECÍFICAS P3 (Evoker)
+// VARIABLES ESPECÍFICAS
 // ==========================================
 let isCharging = false;
 let chargeStart = 0;
 let chargePower = 0;
 
-// ==========================================
-// VARIABLES ESPECÍFICAS P4 (TVs)
-// ==========================================
 let TVS = [];
 let tvLetterPos = { x: 0, y: 0 };
 let tvCurrentIndex = 0;
@@ -120,14 +120,7 @@ let tvVulnerable = false;
 let tvVulnerableTimer = 0;
 let tvMisses = 0;
 
-// ==========================================
-// VARIABLES ESPECÍFICAS P5 (Escape)
-// ==========================================
 let escapeZone = { x: 0, y: 0, w: 220, h: 160 };
-
-// ==========================================
-// VARIABLES ESPECÍFICAS METAPHOR (Anclajes)
-// ==========================================
 let anchors = [];
 
 // ==========================================
@@ -152,7 +145,6 @@ function setup() {
   setupWorldSelect();
   updateWordBar();
 
-  // Zona de escape P5
   escapeZone.x = width - 250;
   escapeZone.y = height - 200;
 }
@@ -181,17 +173,30 @@ function setupWorldSelect() {
     gameState.started = false;
     gameState.inHub = false;
     resetWorld();
-
     selectScreen.classList.remove('hidden');
     setTimeout(() => selectScreen.classList.remove('fade-out'), 50);
     gameUI.classList.add('hidden');
-    document.getElementById('p4-hud').classList.add('hidden');
   });
 
   document.getElementById('toggle-music').addEventListener('click', () => {
     musicMuted = !musicMuted;
     if (bgMusic) bgMusic.setVolume(musicMuted ? 0 : 0.35);
-    document.getElementById('toggle-music').textContent = musicMuted ? "🔇 Música" : "🔊 Música";
+    document.getElementById('toggle-music').textContent = musicMuted ? "🔇" : "🔊";
+  });
+
+  // BOTÓN REINICIAR TODO
+  document.getElementById('reset-all').addEventListener('click', () => {
+    if (!confirm("¿Seguro que quieres reiniciar TODO el progreso?")) return;
+    localStorage.removeItem('atlus_found');
+    gameState.foundLetters = { A: false, T: false, L: false, U: false, S: false };
+    updateWordBar();
+    stopMusic();
+    gameState.started = false;
+    gameState.inHub = false;
+    resetWorld();
+    selectScreen.classList.remove('hidden');
+    setTimeout(() => selectScreen.classList.remove('fade-out'), 50);
+    gameUI.classList.add('hidden');
   });
 }
 
@@ -237,7 +242,7 @@ function stopMusic() {
 // ==========================================
 function draw() {
   if (!gameState.started) {
-    background("#0b0b0f");
+    background("#06060a");
     return;
   }
 
@@ -246,7 +251,6 @@ function draw() {
 
   if (gameState.inHub) { drawHub(); return; }
 
-  // P4: no usa motor de física
   if (gameState.currentDimension === 1) {
     drawAmbientEffects();
     drawFloatingPhrases();
@@ -263,12 +267,10 @@ function draw() {
 
   for (let l of letters) l.display();
 
-  // Efectos específicos
   if (gameState.currentDimension === 0) drawCharge();
   if (gameState.currentDimension === 2) drawEscapeZone();
   if (gameState.currentDimension === 4) drawAnchors();
 
-  handleInteractiveForces();
   checkLetterFound();
   drawTransition();
 }
@@ -296,7 +298,7 @@ function createLetters() {
   const activeChar = chars[gameState.currentDimension];
 
   if (gameState.foundLetters[activeChar]) return;
-  if (gameState.currentDimension === 1) return; // P4 no usa física
+  if (gameState.currentDimension === 1) return;
 
   let x = width / 2;
   let y = height / 2;
@@ -315,7 +317,6 @@ function createLetters() {
   letters.push(new LetterBody(body, activeChar, gameState.currentDimension));
   World.add(world, body);
 
-  // P5: resorte al techo (Palacio)
   if (gameState.currentDimension === 2) {
     let spring = Constraint.create({
       pointA: { x: width - 300, y: 80 },
@@ -327,7 +328,6 @@ function createLetters() {
     World.add(world, spring);
   }
 
-  // Metaphor: anclaje
   if (gameState.currentDimension === 4) {
     let anchor = Constraint.create({
       pointA: { x: width / 2, y: 80 },
@@ -339,7 +339,6 @@ function createLetters() {
     World.add(world, anchor);
   }
 
-  // Catherine: bloques que caen
   if (gameState.currentDimension === 3) {
     for (let i = 0; i < 6; i++) {
       let block = Bodies.rectangle(
@@ -406,7 +405,6 @@ function applyDimension(index) {
     createLetters();
   }
 
-  // Inicializar específicos
   if (index === 1) {
     setupTVs();
     createTVLetter();
@@ -429,6 +427,11 @@ function applyDimension(index) {
   document.getElementById("goal-panel").style.borderLeftColor = dim.color;
   document.getElementById("goal-desc").innerText = dim.desc;
 
+  // Badge del mundo
+  document.getElementById("world-badge-letter").textContent = dim.letterTarget;
+  document.getElementById("world-badge-letter").style.color = dim.color;
+  document.getElementById("world-badge-name").textContent = dim.name.split(":")[0];
+
   document.body.className = "cursor-" + ["p3","p4","p5","catherine","metaphor"][index];
 
   updateWorldSignature();
@@ -437,23 +440,20 @@ function applyDimension(index) {
 }
 
 // ==========================================
-// P3 — EVOKER (disparo cargado)
+// P3 — EVOKER
 // ==========================================
 function drawCharge() {
   if (isCharging) {
     let chargeTime = millis() - chargeStart;
     chargePower = constrain(map(chargeTime, 0, 1500, 0, 1), 0, 1);
-
     push();
     noFill();
     stroke(0, 153, 255, 200);
     strokeWeight(3);
     ellipse(mouseX, mouseY, 80 * chargePower, 80 * chargePower);
-
     stroke(0, 153, 255, 100);
     strokeWeight(1);
     ellipse(mouseX, mouseY, 80, 80);
-
     stroke(0, 153, 255, 255);
     strokeWeight(2);
     line(mouseX - 15, mouseY, mouseX + 15, mouseY);
@@ -487,20 +487,16 @@ function createTVLetter() {
 }
 
 function drawTVWorld() {
-  // TVs
   for (let i = 0; i < TVS.length; i++) {
     let tv = TVS[i];
     let isActive = (i === tvCurrentIndex) && !tvVulnerable;
     let isVuln = (i === tvCurrentIndex) && tvVulnerable;
-
     push();
     noFill();
     stroke(isVuln ? "#ffffff" : (isActive ? "#ffcc00" : "#444"));
     strokeWeight(isActive || isVuln ? 4 : 2);
     rect(tv.x - tv.r, tv.y - tv.r, tv.r * 2, tv.r * 2, 14);
     pop();
-
-    // Scanlines en el activo
     if (isActive || isVuln) {
       push();
       stroke(255, 204, 0, 40);
@@ -511,8 +507,6 @@ function drawTVWorld() {
       pop();
     }
   }
-
-  // Letra 'T'
   push();
   textAlign(CENTER, CENTER);
   textFont('Montserrat');
@@ -522,7 +516,6 @@ function drawTVWorld() {
   text("T", tvLetterPos.x, tvLetterPos.y);
   pop();
 
-  // Auto-salto
   if (!tvVulnerable && millis() - tvLastMove > tvJumpSpeed) {
     let next;
     do { next = floor(random(TVS.length)); } while (next === tvCurrentIndex && TVS.length > 1);
@@ -533,7 +526,6 @@ function drawTVWorld() {
     spawnStaticParticles();
   }
 
-  // Fin de vulnerabilidad
   if (tvVulnerable && millis() - tvVulnerableTimer > 1000) {
     tvVulnerable = false;
     tvJumpSpeed = max(600, tvJumpSpeed - 200);
@@ -545,7 +537,7 @@ function updateP4Hud() {
 }
 
 // ==========================================
-// P5 — Zona de escape
+// P5 — Escape
 // ==========================================
 function drawEscapeZone() {
   push();
@@ -555,7 +547,6 @@ function drawEscapeZone() {
   drawingContext.setLineDash([10, 8]);
   rect(escapeZone.x, escapeZone.y, escapeZone.w, escapeZone.h, 14);
   drawingContext.setLineDash([]);
-
   textAlign(CENTER, CENTER);
   textSize(16);
   fill(255, 0, 51, 220);
@@ -574,14 +565,11 @@ function drawAnchors() {
     noStroke();
     fill(a.tensioned ? "#e6b800" : "#444");
     ellipse(a.x, a.y, 36, 36);
-
     if (a.tensioned) {
-      // Halo
       noFill();
       stroke(230, 184, 0, 100);
       strokeWeight(2);
       ellipse(a.x, a.y, 60, 60);
-      // Hilo
       stroke(230, 184, 0, 180);
       strokeWeight(2);
       if (letters.length > 0) {
@@ -594,23 +582,16 @@ function drawAnchors() {
 }
 
 // ==========================================
-// FUERZAS INTERACTIVAS
-// ==========================================
-function handleInteractiveForces() {}
-
-// ==========================================
 // MOUSE
 // ==========================================
 function mousePressed() {
   if (!gameState.started || gameState.inHub) return;
 
-  // P3: iniciar carga
   if (gameState.currentDimension === 0 && letters.length > 0) {
     isCharging = true;
     chargeStart = millis();
   }
 
-  // P4: golpear TV
   if (gameState.currentDimension === 1) {
     let tv = TVS[tvCurrentIndex];
     let d = dist(mouseX, mouseY, tv.x, tv.y);
@@ -621,9 +602,7 @@ function mousePressed() {
       spawnHitEffect(tv.x, tv.y);
       showNotification(`CHANNEL ${tvHitCount}`, "Reach out to the truth");
       updateP4Hud();
-      if (tvHitCount >= 5) {
-        setTimeout(() => sealLetter('T'), 600);
-      }
+      if (tvHitCount >= 5) setTimeout(() => sealLetter('T'), 600);
     } else {
       tvMisses++;
       spawnMissEffect(mouseX, mouseY);
@@ -631,29 +610,23 @@ function mousePressed() {
     }
   }
 
-  // Metaphor: tensar anclajes
   if (gameState.currentDimension === 4) {
     for (let a of anchors) {
-      if (dist(mouseX, mouseY, a.x, a.y) < 30) {
-        a.tensioned = true;
-      }
+      if (dist(mouseX, mouseY, a.x, a.y) < 30) a.tensioned = true;
     }
   }
 }
 
 function mouseReleased() {
-  // P3: disparar
   if (gameState.currentDimension === 0 && isCharging && letters.length > 0) {
     let chargeTime = millis() - chargeStart;
     let power = map(chargeTime, 0, 1500, 0.03, 0.18);
     power = constrain(power, 0.03, 0.18);
-
     let target = letters[0].body;
     let dir = Vector.sub({ x: mouseX, y: mouseY }, target.position);
     dir = Vector.normalise(dir);
     dir = Vector.mult(dir, power);
     Body.applyForce(target, target.position, dir);
-
     for (let i = 0; i < 10; i++) {
       particles.push({
         type: 'projectile',
@@ -672,9 +645,9 @@ function mouseReleased() {
 // ==========================================
 function checkLetterFound() {
   if (gameState.inHub) return;
-  if (gameState.currentDimension === 1) return; // P4 maneja su propia victoria
-
+  if (gameState.currentDimension === 1) return;
   if (letters.length === 0) return;
+
   let l = letters[0];
   let pos = l.body.position;
   let dim = DIMENSIONS[gameState.currentDimension];
@@ -682,9 +655,7 @@ function checkLetterFound() {
 
   switch (dim.winCondition) {
     case "orbitMoon": {
-      let moonX = width / 2 - 240;
-      let moonY = height / 2;
-      found = dist(pos.x, pos.y, moonX, moonY) < 80;
+      found = dist(pos.x, pos.y, width / 2 - 240, height / 2) < 80;
       break;
     }
     case "reachEscape": {
@@ -721,7 +692,6 @@ function sealLetter(char) {
   showNotification(`"${char}" — ${dim.name}`, dim.phrases[0]);
   updateWordBar();
 
-  // Partículas doradas
   let px = width / 2, py = height / 2;
   if (letters.length > 0) {
     px = letters[0].body.position.x;
@@ -763,11 +733,14 @@ function goToHub() {
   World.clear(world, false);
   createBoundaries();
 
-  document.getElementById("goal-title").innerText = "A T L U S";
+  document.getElementById("goal-title").innerText = "La palabra está completa";
   document.getElementById("goal-title").style.color = "#ffcc00";
   document.getElementById("goal-panel").style.borderLeftColor = "#ffcc00";
   document.getElementById("goal-desc").innerText = "Cinco mundos. Una palabra. Tu turno.";
   document.getElementById("world-signature").innerHTML = "";
+  document.getElementById("world-badge-letter").textContent = "★";
+  document.getElementById("world-badge-letter").style.color = "#ffcc00";
+  document.getElementById("world-badge-name").textContent = "COMPLETE";
   document.getElementById("p4-hud").classList.add("hidden");
   document.body.className = "";
   stopMusic();
@@ -780,12 +753,12 @@ function drawHub() {
   textSize(120);
   fill("#ffcc00");
   noStroke();
-  text("ATLUS", width / 2, height / 2 - 80);
+  text("A T L U S", width / 2, height / 2 - 80);
 
-  const games = ["P3", "P4", "P5", "Catherine", "Metaphor"];
   textSize(14);
   textFont('Space Grotesk');
   fill("#888");
+  const games = ["P3", "P4", "P5", "Catherine", "Metaphor"];
   for (let i = 0; i < 5; i++) {
     text(games[i], width / 2 - 260 + i * 130, height / 2 - 10);
   }
@@ -810,7 +783,7 @@ function drawHub() {
 }
 
 // ==========================================
-// EFECTOS AMBIENTALES
+// EFECTOS AMBIENTALES (sin cambios significativos)
 // ==========================================
 function drawAmbientEffects() {
   let dim = DIMENSIONS[gameState.currentDimension];
@@ -872,16 +845,14 @@ function drawAmbientEffects() {
     pop();
   }
 
-  if (gameState.currentDimension === 4) {
-    if (frameCount % 20 === 0) {
-      particles.push({
-        type: 'rune',
-        pos: { x: random(width), y: height + 20 },
-        vel: { x: random(-0.3, 0.3), y: random(-1, -0.3) },
-        life: 200,
-        char: random(["✦", "◆", "✧", "◇", "✶"])
-      });
-    }
+  if (gameState.currentDimension === 4 && frameCount % 20 === 0) {
+    particles.push({
+      type: 'rune',
+      pos: { x: random(width), y: height + 20 },
+      vel: { x: random(-0.3, 0.3), y: random(-1, -0.3) },
+      life: 200,
+      char: random(["✦", "◆", "✧", "◇", "✶"])
+    });
   }
 }
 
@@ -896,8 +867,7 @@ function drawParticles() {
     if (p.type === 'projectile') {
       push(); fill(0, 153, 255, p.life * 8); noStroke();
       ellipse(p.pos.x, p.pos.y, 8, 8); pop();
-      p.pos.x += p.vel.x; p.pos.y += p.vel.y;
-      p.life--;
+      p.pos.x += p.vel.x; p.pos.y += p.vel.y; p.life--;
       if (p.life <= 0) particles.splice(i, 1);
     } else if (p.type === 'gold') {
       push(); fill(255, 204, 0, p.life); noStroke();
@@ -939,18 +909,11 @@ function spawnStaticParticles() {
     });
   }
 }
-
 function spawnHitEffect(x, y) {
   for (let i = 0; i < 30; i++) {
-    particles.push({
-      type: 'hit',
-      pos: { x, y },
-      vel: { x: random(-5, 5), y: random(-5, 5) },
-      life: 40
-    });
+    particles.push({ type: 'hit', pos: { x, y }, vel: { x: random(-5, 5), y: random(-5, 5) }, life: 40 });
   }
 }
-
 function spawnMissEffect(x, y) {
   particles.push({ type: 'miss', pos: { x, y }, life: 40 });
 }
@@ -998,7 +961,7 @@ function drawFloatingPhrases() {
 // CONSTRAINTS
 // ==========================================
 function drawConstraints() {
-  if (gameState.currentDimension === 4) return; // Metaphor dibuja sus propios hilos
+  if (gameState.currentDimension === 4) return;
   let dim = DIMENSIONS[gameState.currentDimension];
   push();
   stroke(dim.color);
@@ -1030,11 +993,16 @@ function drawTransition() {
 // UI
 // ==========================================
 function updateWordBar() {
+  // Los slots se llenan por índice según LETTER_ORDER
   document.querySelectorAll('.word-slot').forEach(slot => {
-    const letter = slot.dataset.letter;
+    const index = parseInt(slot.dataset.index);
+    const letter = LETTER_ORDER[index];
     if (gameState.foundLetters[letter]) {
       slot.textContent = letter;
       slot.classList.add('found');
+    } else {
+      slot.textContent = "?";
+      slot.classList.remove('found');
     }
   });
 }
@@ -1065,7 +1033,5 @@ function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
   escapeZone.x = width - 250;
   escapeZone.y = height - 200;
-  if (gameState.currentDimension === 1 && gameState.started) {
-    setupTVs();
-  }
+  if (gameState.currentDimension === 1 && gameState.started) setupTVs();
 }

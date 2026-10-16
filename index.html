@@ -13,84 +13,105 @@
 
   <!-- ===== PANTALLA DE SELECCIÓN DE MUNDO ===== -->
   <div id="world-select">
-    <div class="select-brand">
-      <h1>ATLUS</h1>
-      <p>Multiverse Physical System</p>
-      <span class="select-hint">Elige un mundo para comenzar</span>
-    </div>
+    <div class="select-bg"></div>
+    <div class="select-content">
+      <div class="select-brand">
+        <h1>ATLUS</h1>
+        <p>Multiverse Physical System</p>
+        <span class="select-hint">— Elige un mundo —</span>
+      </div>
 
-    <div class="world-grid">
-      <button class="world-card" data-dim="0">
-        <span class="world-letter">A</span>
-        <span class="world-name">Persona 3</span>
-        <span class="world-sub">The Dark Hour</span>
-        <span class="world-song">Color Your Night</span>
-        <span class="world-color" style="background:#0099ff"></span>
-      </button>
+      <div class="world-grid">
+        <button class="world-card" data-dim="0">
+          <span class="world-letter">A</span>
+          <span class="world-name">Persona 3</span>
+          <span class="world-sub">The Dark Hour</span>
+          <span class="world-song">♪ Color Your Night</span>
+          <span class="world-color" style="background:#0099ff"></span>
+        </button>
 
-      <button class="world-card" data-dim="1">
-        <span class="world-letter">T</span>
-        <span class="world-name">Persona 4</span>
-        <span class="world-sub">The TV World</span>
-        <span class="world-song">Specialist</span>
-        <span class="world-color" style="background:#ffcc00"></span>
-      </button>
+        <button class="world-card" data-dim="1">
+          <span class="world-letter">T</span>
+          <span class="world-name">Persona 4</span>
+          <span class="world-sub">The TV World</span>
+          <span class="world-song">♪ Specialist</span>
+          <span class="world-color" style="background:#ffcc00"></span>
+        </button>
 
-      <button class="world-card" data-dim="2">
-        <span class="world-letter">L</span>
-        <span class="world-name">Persona 5</span>
-        <span class="world-sub">The Metaverse</span>
-        <span class="world-song">I Believe</span>
-        <span class="world-color" style="background:#ff0033"></span>
-      </button>
+        <button class="world-card" data-dim="2">
+          <span class="world-letter">L</span>
+          <span class="world-name">Persona 5</span>
+          <span class="world-sub">The Metaverse</span>
+          <span class="world-song">♪ I Believe</span>
+          <span class="world-color" style="background:#ff0033"></span>
+        </button>
 
-      <button class="world-card" data-dim="3">
-        <span class="world-letter">U</span>
-        <span class="world-name">Catherine</span>
-        <span class="world-sub">Tower of Babel</span>
-        <span class="world-song">It's a Golden Show</span>
-        <span class="world-color" style="background:#ff00aa"></span>
-      </button>
+        <button class="world-card" data-dim="3">
+          <span class="world-letter">U</span>
+          <span class="world-name">Catherine</span>
+          <span class="world-sub">Tower of Babel</span>
+          <span class="world-song">♪ It's a Golden Show</span>
+          <span class="world-color" style="background:#ff00aa"></span>
+        </button>
 
-      <button class="world-card" data-dim="4">
-        <span class="world-letter">S</span>
-        <span class="world-name">Metaphor</span>
-        <span class="world-sub">Archetype Threads</span>
-        <span class="world-song">Battle Theme</span>
-        <span class="world-color" style="background:#e6b800"></span>
-      </button>
-    </div>
+        <button class="world-card" data-dim="4">
+          <span class="world-letter">S</span>
+          <span class="world-name">Metaphor</span>
+          <span class="world-sub">Archetype Threads</span>
+          <span class="world-song">♪ Battle Theme</span>
+          <span class="world-color" style="background:#e6b800"></span>
+        </button>
+      </div>
 
-    <div class="select-footer">
-      <span>Cinco mundos. Una palabra. Tu turno.</span>
+      <div class="select-footer">
+        <span>Cinco mundos. Una palabra. Tu turno.</span>
+      </div>
     </div>
   </div>
 
   <!-- ===== UI DEL JUEGO ===== -->
   <div id="game-ui" class="hidden">
 
+    <!-- Barra superior -->
+    <div id="top-bar">
+      <button id="back-to-select" class="ui-btn">← Mundos</button>
+      <div id="world-badge">
+        <span id="world-badge-letter">?</span>
+        <span id="world-badge-name">—</span>
+      </div>
+      <div class="top-right">
+        <button id="toggle-music" class="ui-btn">🔊</button>
+        <button id="reset-all" class="ui-btn danger">⟳ Reiniciar</button>
+      </div>
+    </div>
+
+    <!-- Panel de objetivo -->
     <div id="goal-panel">
-      <h2 id="goal-title">Persona 3: The Dark Hour</h2>
-      <p id="goal-desc">Gravedad cero y estasis. Dispara impulsos con el cursor para colocar la 'A' dentro de la órbita de la Luna Llena.</p>
+      <div class="goal-label">OBJETIVO</div>
+      <h2 id="goal-title">—</h2>
+      <p id="goal-desc">—</p>
     </div>
 
+    <!-- Barra de palabra -->
     <div id="word-bar">
-      <span class="word-slot" data-letter="A" data-hint="P3 · The Dark Hour">_</span>
-      <span class="word-slot" data-letter="T" data-hint="P4 · The TV World">_</span>
-      <span class="word-slot" data-letter="L" data-hint="P5 · The Metaverse">_</span>
-      <span class="word-slot" data-letter="U" data-hint="Catherine · Tower of Babel">_</span>
-      <span class="word-slot" data-letter="S" data-hint="Metaphor · Archetype Threads">_</span>
+      <div class="word-label">PALABRA DESCUBIERTA</div>
+      <div class="word-slots">
+        <span class="word-slot" data-index="0">?</span>
+        <span class="word-slot" data-index="1">?</span>
+        <span class="word-slot" data-index="2">?</span>
+        <span class="word-slot" data-index="3">?</span>
+        <span class="word-slot" data-index="4">?</span>
+      </div>
     </div>
 
+    <!-- Firma visual del mundo -->
     <div id="world-signature"></div>
 
+    <!-- Notificación -->
     <div id="notification">
       <div id="notif-title"></div>
       <div id="notif-sub"></div>
     </div>
-
-    <button id="back-to-select">← Cambiar mundo</button>
-    <button id="toggle-music">🔊 Música</button>
 
     <!-- HUD específico de P4 -->
     <div id="p4-hud" class="hidden">
