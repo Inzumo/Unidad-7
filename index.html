@@ -11,7 +11,7 @@
 </head>
 <body>
 
-  <!-- ===== PANTALLA DE SELECCIÓN DE MUNDO ===== -->
+  <!-- ===== PANTALLA DE SELECCIÓN ===== -->
   <div id="world-select">
     <div class="select-bg"></div>
     <div class="select-content">
@@ -29,7 +29,6 @@
           <span class="world-song">♪ Color Your Night</span>
           <span class="world-color" style="background:#0099ff"></span>
         </button>
-
         <button class="world-card" data-dim="1">
           <span class="world-letter">T</span>
           <span class="world-name">Persona 4</span>
@@ -37,7 +36,6 @@
           <span class="world-song">♪ Specialist</span>
           <span class="world-color" style="background:#ffcc00"></span>
         </button>
-
         <button class="world-card" data-dim="2">
           <span class="world-letter">L</span>
           <span class="world-name">Persona 5</span>
@@ -45,7 +43,6 @@
           <span class="world-song">♪ I Believe</span>
           <span class="world-color" style="background:#ff0033"></span>
         </button>
-
         <button class="world-card" data-dim="3">
           <span class="world-letter">U</span>
           <span class="world-name">Catherine</span>
@@ -53,7 +50,6 @@
           <span class="world-song">♪ It's a Golden Show</span>
           <span class="world-color" style="background:#ff00aa"></span>
         </button>
-
         <button class="world-card" data-dim="4">
           <span class="world-letter">S</span>
           <span class="world-name">Metaphor</span>
@@ -71,17 +67,18 @@
 
   <!-- ===== UI DEL JUEGO ===== -->
   <div id="game-ui" class="hidden">
-
     <!-- Barra superior -->
     <div id="top-bar">
-      <button id="back-to-select" class="ui-btn">← Mundos</button>
+      <div class="top-left">
+        <button id="back-to-select" class="ui-btn">← Mundos</button>
+        <button id="reset-all" class="ui-btn danger">⟳ Reiniciar todo</button>
+      </div>
       <div id="world-badge">
         <span id="world-badge-letter">?</span>
         <span id="world-badge-name">—</span>
       </div>
       <div class="top-right">
-        <button id="toggle-music" class="ui-btn">🔊</button>
-        <button id="reset-all" class="ui-btn danger">⟳ Reiniciar</button>
+        <button id="toggle-music" class="ui-btn">🔊 Música</button>
       </div>
     </div>
 
@@ -113,11 +110,10 @@
       <div id="notif-sub"></div>
     </div>
 
-    <!-- HUD específico de P4 -->
+    <!-- HUD P4 -->
     <div id="p4-hud" class="hidden">
       <span id="p4-hits">CHANNEL 0 / 5</span>
     </div>
-
   </div>
 
   <main id="canvas-holder"></main>

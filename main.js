@@ -13,35 +13,25 @@ let mouseConstraint;
 let bgMusic = null;
 let musicMuted = false;
 
-// Orden fijo de las letras (para saber qué slot llenar)
 const LETTER_ORDER = ["A", "T", "L", "U", "S"];
 
-// ==========================================
-// ESTADO GLOBAL
-// ==========================================
 const gameState = {
   currentDimension: 0,
   foundLetters: JSON.parse(localStorage.getItem('atlus_found') || '{"A":false,"T":false,"L":false,"U":false,"S":false}'),
   inHub: false,
-  transitionTimer: 0,
-  started: false
+  started: false,
+  canvasReady: false
 };
 
-// ==========================================
-// CONFIGURACIÓN DE LOS 5 MUNDOS
-// ==========================================
 const DIMENSIONS = [
   {
     name: "Persona 3: The Dark Hour",
     letterTarget: "A",
     color: "#0099ff",
-    accent: "#00ffcc",
     bg: "#050b14",
-    desc: "Carga el Evoker: mantén el clic, apunta y suelta para disparar. Empuja la letra hacia la Luna Llena.",
+    desc: "Carga el Evoker: mantén el clic, apunta y suelta. Empuja la letra hacia la Luna Llena.",
     gravity: { x: 0, y: 0 },
-    friction: 0.001,
     phrases: ["Memento Mori", "The Dark Hour", "Are you afraid of death?", "The clock is ticking", "Death is not the end"],
-    cursor: "crosshair",
     winCondition: "orbitMoon",
     music: "music/p3.mp3"
   },
@@ -49,13 +39,10 @@ const DIMENSIONS = [
     name: "Persona 4: The TV World",
     letterTarget: "T",
     color: "#ffcc00",
-    accent: "#ff8800",
     bg: "#1a1600",
-    desc: "La letra salta entre televisores. Haz clic en el TV correcto cuando esté dentro para sintonizarla 5 veces.",
+    desc: "La letra salta entre televisores. Haz clic en el TV correcto cuando esté dentro, 5 veces.",
     gravity: { x: 0, y: 0 },
-    friction: 0,
     phrases: ["Reach out to the truth", "I am thou", "Thou art I", "Can you see through the fog?", "The truth is out there"],
-    cursor: "cell",
     winCondition: "hitsTVs",
     music: "music/p4.mp3"
   },
@@ -63,13 +50,10 @@ const DIMENSIONS = [
     name: "Persona 5: Metaverse Rebellion",
     letterTarget: "L",
     color: "#ff0033",
-    accent: "#ffffff",
     bg: "#120003",
-    desc: "Roba el corazón: arrastra la letra hasta la zona de escape en la esquina inferior derecha.",
+    desc: "Roba el corazón: arrastra la letra hasta la zona ESCAPE (esquina inferior derecha).",
     gravity: { x: 0, y: 0.5 },
-    friction: 0.01,
     phrases: ["You'll never see it coming", "Take your heart", "Wake up, get up, get out there", "Are you free?", "Steal back your future"],
-    cursor: "pointer",
     winCondition: "reachEscape",
     music: "music/p5.mp3"
   },
@@ -77,13 +61,10 @@ const DIMENSIONS = [
     name: "Catherine: Tower of Babel",
     letterTarget: "U",
     color: "#ff00aa",
-    accent: "#ffffff",
     bg: "#14000b",
-    desc: "Mueve los bloques con el mouse para liberar la letra atrapada abajo. Debe quedar sin bloques cerca.",
+    desc: "Mueve los bloques con el mouse para liberar la letra atrapada abajo.",
     gravity: { x: 0, y: 1.5 },
-    friction: 0.4,
     phrases: ["It's a nightmare", "Don't look down", "Love is over", "What do you desire?", "Will you climb?"],
-    cursor: "move",
     winCondition: "freeU",
     music: "music/catherine.mp3"
   },
@@ -91,21 +72,16 @@ const DIMENSIONS = [
     name: "Metaphor: Archetype Threads",
     letterTarget: "S",
     color: "#e6b800",
-    accent: "#ffdd44",
     bg: "#0d0c03",
     desc: "Haz clic en los 3 anclajes dorados para tensar los hilos y bajar la letra al centro.",
     gravity: { x: 0, y: -0.1 },
-    friction: 0.02,
     phrases: ["The world is a story", "Fantasy lives on", "You are its author", "Who are you?", "What story will you write?"],
-    cursor: "text",
     winCondition: "connectThreads",
     music: "music/metaphor.mp3"
   }
 ];
 
-// ==========================================
-// VARIABLES ESPECÍFICAS
-// ==========================================
+// Variables específicas
 let isCharging = false;
 let chargeStart = 0;
 let chargePower = 0;
@@ -118,7 +94,6 @@ let tvLastMove = 0;
 let tvJumpSpeed = 2000;
 let tvVulnerable = false;
 let tvVulnerableTimer = 0;
-let tvMisses = 0;
 
 let escapeZone = { x: 0, y: 0, w: 220, h: 160 };
 let anchors = [];
@@ -129,6 +104,9 @@ let anchors = [];
 function setup() {
   let canvas = createCanvas(windowWidth, windowHeight);
   canvas.parent("canvas-holder");
+  // Importante: dejar el canvas al fondo en el DOM
+  canvas.elt.style.position = "fixed";
+  canvas.elt.style.zIndex = "1";
 
   engine = Engine.create();
   world = engine.world;
@@ -145,12 +123,14 @@ function setup() {
   setupWorldSelect();
   updateWordBar();
 
-  escapeZone.x = width - 250;
-  escapeZone.y = height - 200;
+  escapeZone.x = width - 260;
+  escapeZone.y = height - 220;
+
+  gameState.canvasReady = true;
 }
 
 // ==========================================
-// PANTALLA DE SELECCIÓN
+// SELECCIÓN DE MUNDO
 // ==========================================
 function setupWorldSelect() {
   const selectScreen = document.getElementById('world-select');
@@ -181,12 +161,11 @@ function setupWorldSelect() {
   document.getElementById('toggle-music').addEventListener('click', () => {
     musicMuted = !musicMuted;
     if (bgMusic) bgMusic.setVolume(musicMuted ? 0 : 0.35);
-    document.getElementById('toggle-music').textContent = musicMuted ? "🔇" : "🔊";
+    document.getElementById('toggle-music').textContent = musicMuted ? "🔇 Música" : "🔊 Música";
   });
 
-  // BOTÓN REINICIAR TODO
   document.getElementById('reset-all').addEventListener('click', () => {
-    if (!confirm("¿Seguro que quieres reiniciar TODO el progreso?")) return;
+    if (!confirm("¿Reiniciar TODO el progreso?")) return;
     localStorage.removeItem('atlus_found');
     gameState.foundLetters = { A: false, T: false, L: false, U: false, S: false };
     updateWordBar();
@@ -229,7 +208,7 @@ function playMusicForDimension(index) {
       bgMusic.setVolume(musicMuted ? 0 : 0.35);
       bgMusic.loop();
     },
-    (err) => console.warn("No se pudo cargar la música:", dim.music, err)
+    (err) => console.warn("Música no cargada:", dim.music)
   );
 }
 
@@ -272,7 +251,6 @@ function draw() {
   if (gameState.currentDimension === 4) drawAnchors();
 
   checkLetterFound();
-  drawTransition();
 }
 
 // ==========================================
@@ -401,10 +379,6 @@ function applyDimension(index) {
   for (let l of letters) World.remove(world, l.body);
   letters = [];
 
-  if (!gameState.foundLetters[dim.letterTarget]) {
-    createLetters();
-  }
-
   if (index === 1) {
     setupTVs();
     createTVLetter();
@@ -412,6 +386,7 @@ function applyDimension(index) {
     updateP4Hud();
   } else {
     document.getElementById('p4-hud').classList.add('hidden');
+    createLetters();
   }
 
   if (index === 4) {
@@ -427,7 +402,6 @@ function applyDimension(index) {
   document.getElementById("goal-panel").style.borderLeftColor = dim.color;
   document.getElementById("goal-desc").innerText = dim.desc;
 
-  // Badge del mundo
   document.getElementById("world-badge-letter").textContent = dim.letterTarget;
   document.getElementById("world-badge-letter").style.color = dim.color;
   document.getElementById("world-badge-name").textContent = dim.name.split(":")[0];
@@ -483,7 +457,6 @@ function createTVLetter() {
   tvLastMove = millis();
   tvJumpSpeed = 2000;
   tvVulnerable = false;
-  tvMisses = 0;
 }
 
 function drawTVWorld() {
@@ -586,6 +559,7 @@ function drawAnchors() {
 // ==========================================
 function mousePressed() {
   if (!gameState.started || gameState.inHub) return;
+  if (!gameState.canvasReady) return;
 
   if (gameState.currentDimension === 0 && letters.length > 0) {
     isCharging = true;
@@ -604,7 +578,6 @@ function mousePressed() {
       updateP4Hud();
       if (tvHitCount >= 5) setTimeout(() => sealLetter('T'), 600);
     } else {
-      tvMisses++;
       spawnMissEffect(mouseX, mouseY);
       tvJumpSpeed = max(400, tvJumpSpeed - 300);
     }
@@ -783,25 +756,31 @@ function drawHub() {
 }
 
 // ==========================================
-// EFECTOS AMBIENTALES (sin cambios significativos)
+// EFECTOS AMBIENTALES
 // ==========================================
 function drawAmbientEffects() {
   let dim = DIMENSIONS[gameState.currentDimension];
 
   if (gameState.currentDimension === 0) {
+    // Luna Llena (sólida, no solo punteada)
     let pulse = sin(frameCount * 0.03) * 8;
     push();
+    // Círculo sólido con glow
+    noStroke();
+    fill(0, 153, 255, 30);
+    ellipse(width / 2 - 240, height / 2, 180 + pulse, 180 + pulse);
+    fill(0, 153, 255, 60);
+    ellipse(width / 2 - 240, height / 2, 150 + pulse * 0.5, 150 + pulse * 0.5);
+    fill(180, 220, 255, 200);
+    ellipse(width / 2 - 240, height / 2, 120, 120);
+
+    // Órbita punteada
     noFill();
     stroke(dim.color);
     strokeWeight(2);
     drawingContext.setLineDash([6, 6]);
     ellipse(width / 2 - 240, height / 2, 140 + pulse, 140 + pulse);
     drawingContext.setLineDash([]);
-    for (let i = 0; i < 3; i++) {
-      stroke(0, 153, 255, 30 - i * 10);
-      strokeWeight(2);
-      ellipse(width / 2 - 240, height / 2, 160 + i * 20, 160 + i * 20);
-    }
     pop();
   }
 
@@ -976,24 +955,9 @@ function drawConstraints() {
 }
 
 // ==========================================
-// TRANSICIÓN
-// ==========================================
-function drawTransition() {
-  if (gameState.transitionTimer > 0) {
-    push();
-    noStroke();
-    fill(0, 0, 0, map(gameState.transitionTimer, 0, 60, 0, 255));
-    rect(0, 0, width, height);
-    pop();
-    gameState.transitionTimer--;
-  }
-}
-
-// ==========================================
 // UI
 // ==========================================
 function updateWordBar() {
-  // Los slots se llenan por índice según LETTER_ORDER
   document.querySelectorAll('.word-slot').forEach(slot => {
     const index = parseInt(slot.dataset.index);
     const letter = LETTER_ORDER[index];
@@ -1031,7 +995,7 @@ function updateWorldSignature() {
 // ==========================================
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
-  escapeZone.x = width - 250;
-  escapeZone.y = height - 200;
+  escapeZone.x = width - 260;
+  escapeZone.y = height - 220;
   if (gameState.currentDimension === 1 && gameState.started) setupTVs();
 }
