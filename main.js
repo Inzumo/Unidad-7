@@ -1,5 +1,5 @@
 // ==========================================
-// ATLUS: Multiverse Physical System — v8.1
+// ATLUS: Multiverse Physical System — v8.2
 // ==========================================
 
 const { Engine, World, Bodies, Body, Constraint, Vector, Mouse, MouseConstraint } = Matter;
@@ -817,13 +817,13 @@ function spawnCatherineBlock() {
 
   let col = cols[floor(random(cols.length))];
 
-  // FIX: buscar la fila más baja LIBRE sin tocar el piso (rows-1)
+  // Buscar la fila más baja libre recorriendo DE ARRIBA HACIA ABAJO
   let targetRow = -1;
-  for (let r = catherineState.rows - 2; r >= 0; r--) {
+  for (let r = 0; r < catherineState.rows; r++) {
     if (catherineState.grid[col][r] === null) {
       targetRow = r;
     } else {
-      break;
+      break; // primer bloque/piso/letra → paramos
     }
   }
   if (targetRow < 0) return;
