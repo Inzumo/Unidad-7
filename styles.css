@@ -21,9 +21,6 @@ body {
   height: 100vh;
 }
 
-/* ============================================ */
-/* PANTALLA DE SELECCIÓN                        */
-/* ============================================ */
 #world-select {
   position: fixed;
   inset: 0;
@@ -86,10 +83,7 @@ body {
   color: #fff;
   margin-bottom: 14px;
   animation: brandGlow 4s ease-in-out infinite alternate;
-  text-shadow:
-    3px 3px 0px #ff0033,
-    6px 6px 0px rgba(255, 0, 51, 0.4),
-    0 0 80px rgba(255, 0, 51, 0.6);
+  text-shadow: 3px 3px 0px #ff0033, 6px 6px 0px rgba(255, 0, 51, 0.4), 0 0 80px rgba(255, 0, 51, 0.6);
 }
 
 @keyframes brandGlow {
@@ -208,9 +202,6 @@ body {
   text-transform: uppercase;
 }
 
-/* ============================================ */
-/* UI DEL JUEGO                                 */
-/* ============================================ */
 #game-ui {
   position: fixed;
   inset: 0;
@@ -220,74 +211,6 @@ body {
 
 #game-ui > * { pointer-events: auto; }
 
-/* ============================================ */
-/* BRAND QUE SE FORMA                           */
-/* ============================================ */
-#brand-bar {
-  position: absolute;
-  top: 70px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 60;
-  text-align: center;
-  pointer-events: none;
-}
-
-#brand-word {
-  display: flex;
-  gap: 16px;
-  justify-content: center;
-  align-items: center;
-  font-family: 'Montserrat', sans-serif;
-  font-weight: 900;
-  font-size: 3rem;
-  letter-spacing: 6px;
-}
-
-.brand-letter {
-  color: #1e1e28;
-  transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-  min-width: 42px;
-  text-align: center;
-  line-height: 1;
-}
-
-.brand-letter.found {
-  color: #ffcc00;
-  text-shadow: 0 0 20px #ffcc00, 0 0 40px rgba(255, 204, 0, 0.6), 0 0 80px rgba(255, 204, 0, 0.3);
-  transform: translateY(-4px) scale(1.15);
-  animation: brandPop 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-@keyframes brandPop {
-  0% { transform: translateY(0) scale(1); }
-  40% { transform: translateY(-14px) scale(1.6); }
-  100% { transform: translateY(-4px) scale(1.15); }
-}
-
-#brand-bar.complete .brand-letter {
-  animation: brandCompletePulse 2s ease-in-out infinite;
-}
-
-@keyframes brandCompletePulse {
-  0%, 100% { text-shadow: 0 0 20px #ffcc00, 0 0 40px rgba(255, 204, 0, 0.6), 0 0 80px rgba(255, 204, 0, 0.3); }
-  50% { text-shadow: 0 0 30px #ffcc00, 0 0 60px rgba(255, 204, 0, 0.9), 0 0 120px rgba(255, 204, 0, 0.5); }
-}
-
-#brand-sub {
-  margin-top: 8px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.65rem;
-  letter-spacing: 8px;
-  color: #333;
-  text-transform: uppercase;
-  opacity: 0;
-  transition: all 1s ease;
-}
-
-#brand-bar.complete #brand-sub { color: #aaa; opacity: 1; }
-
-/* Barra superior */
 #top-bar {
   position: absolute;
   top: 20px;
@@ -323,7 +246,6 @@ body {
   border-color: rgba(255,255,255,0.6);
   color: #fff;
   background: rgba(30, 30, 45, 0.95);
-  transform: translateY(-1px);
 }
 
 .ui-btn.danger:hover {
@@ -371,7 +293,6 @@ body {
   backdrop-filter: blur(18px);
   border-radius: 0 10px 10px 0;
   z-index: 55;
-  transition: border-left-color 0.5s ease;
 }
 
 .goal-label {
@@ -459,21 +380,15 @@ body {
 
 #world-signature {
   position: absolute;
-  top: 180px;
+  top: 100px;
   right: 30px;
   width: 60px;
   height: 60px;
   opacity: 0.8;
   z-index: 55;
-  animation: sigGlow 3s ease-in-out infinite alternate;
 }
 
 #world-signature svg { width: 100%; height: 100%; }
-
-@keyframes sigGlow {
-  0% { filter: drop-shadow(0 0 8px currentColor); }
-  100% { filter: drop-shadow(0 0 20px currentColor); }
-}
 
 #notification {
   position: absolute;
@@ -517,7 +432,7 @@ body {
 
 #p4-hud, #catherine-hud {
   position: absolute;
-  top: 190px;
+  top: 100px;
   left: 50%;
   transform: translateX(-50%);
   border: 2px solid;
@@ -528,7 +443,6 @@ body {
   font-size: 0.9rem;
   border-radius: 6px;
   z-index: 58;
-  animation: hudPulse 1.6s ease-in-out infinite;
 }
 
 #p4-hud {
@@ -543,11 +457,6 @@ body {
   border-color: #ff00aa;
   color: #ff00aa;
   text-shadow: 0 0 20px #ff00aa;
-}
-
-@keyframes hudPulse {
-  0%, 100% { transform: translateX(-50%) scale(1); }
-  50% { transform: translateX(-50%) scale(1.03); }
 }
 
 body.cursor-p3 { cursor: crosshair; }
