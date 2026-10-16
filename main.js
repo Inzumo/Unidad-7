@@ -1,5 +1,5 @@
 // ==========================================
-// ATLUS: Multiverse Physical System — v6
+// ATLUS: Multiverse Physical System — v7
 // ==========================================
 
 const { Engine, World, Bodies, Body, Constraint, Vector, Mouse, MouseConstraint } = Matter;
@@ -40,20 +40,18 @@ const DIMENSIONS = [
     phrases: ["You'll never see it coming", "Take your heart", "Wake up, get up, get out there", "Are you free?", "Steal back your future"],
     winCondition: "reachEscape", music: "music/p5.mp3" },
   { name: "Mundo 04 · Tower of Babel", letterTarget: "U", color: "#ff00aa", bg: "#14000b",
-    desc: "Sube la torre: mueve la letra con ← → y súbela con ESPACIO si hay un bloque debajo.",
+    desc: "Sube la torre: mueve la letra con ← → y súbela con ESPACIO. Los bloques caen y empujan todo hacia arriba.",
     gravity: { x: 0, y: 0 },
     phrases: ["It's a nightmare", "Don't look down", "Love is over", "What do you desire?", "Will you climb?"],
     winCondition: "stackTower", music: "music/catherine.mp3" },
   { name: "Mundo 05 · Archetype Threads", letterTarget: "S", color: "#e6b800", bg: "#0d0c03",
-    desc: "Batalla contra Homo Gorleo: selecciona un objetivo, ataca con Cyc (Viento) sus debilidades.",
+    desc: "Batalla contra Homo Gorleo: ataca sus debilidades (Ala y Pierna) con Cyc.",
     gravity: { x: 0, y: 0 },
     phrases: ["The world is a story", "Fantasy lives on", "You are its author", "Who are you?", "What story will you write?"],
     winCondition: "defeatGorleo", music: "music/metaphor.mp3" }
 ];
 
-// ==========================================
-// P3 — SOMBRAS
-// ==========================================
+// P3 — Sombras
 let isCharging = false;
 let chargeStart = 0;
 let chargePower = 0;
@@ -61,9 +59,7 @@ let shadows = [];
 let shadowsKilled = 0;
 const TOTAL_SHADOWS = 5;
 
-// ==========================================
 // P4 — TVs
-// ==========================================
 let TVS = [];
 let tvLetterPos = { x: 0, y: 0 };
 let tvCurrentIndex = 0;
@@ -75,34 +71,28 @@ let tvVulnerableTimer = 0;
 let tvCooldown = 0;
 const TV_COOLDOWN = 500;
 
-// ==========================================
-// P5 — MEMENTOS
-// ==========================================
+// P5 — Mementos
 let mementosWalls = [];
 let escapeZone = { x: 0, y: 0, w: 220, h: 160 };
 
-// ==========================================
-// CATHERINE — PUZZLE DE TORRE
-// ==========================================
+// Catherine — Tower
 let catherineState = {
-  cellSize: 55,
+  cellSize: 60,
   cols: 9,
-  rows: 12,
+  rows: 10,
   offsetX: 0,
   offsetY: 0,
   grid: [],
-  fallingRows: [],       // filas que caen
+  fallingBlocks: [],
   letterCol: 4,
-  letterRow: 10,
+  letterRow: 9,
   moveCooldown: 0,
-  spawnInterval: 2200,
+  spawnInterval: 2400,
   lastSpawn: 0,
-  heightScore: 0
+  maxHeightReached: 0
 };
 
-// ==========================================
-// METAPHOR — BATALLA HOMO GORLEO
-// ==========================================
+// Metaphor — Battle
 let metaphorBattle = {
   active: false,
   playerHP: 100,
@@ -113,16 +103,11 @@ let metaphorBattle = {
   maxTurnIcons: 2,
   phase: 'player',
   boss: {
-    hp: 100,
-    maxHp: 100,
-    wingHP: 40,
-    wingMaxHP: 40,
-    legHP: 60,
-    legMaxHP: 60,
-    apples: 2,
-    applesAvailable: false,
-    wingDestroyed: false,
-    legDestroyed: false
+    hp: 100, maxHp: 100,
+    wingHP: 40, wingMaxHP: 40,
+    legHP: 60, legMaxHP: 60,
+    apples: 2, applesAvailable: false,
+    wingDestroyed: false, legDestroyed: false
   },
   selectedTarget: 'body',
   log: [],
@@ -229,7 +214,7 @@ function resetWorld() {
   tvCooldown = 0;
   metaphorBattle.active = false;
   catherineState.grid = [];
-  catherineState.fallingRows = [];
+  catherineState.fallingBlocks = [];
   document.getElementById('p4-hud').classList.add('hidden');
   document.getElementById('catherine-hud').classList.add('hidden');
 }
@@ -261,7 +246,6 @@ function draw() {
 
   drawAmbientEffects();
 
-  // P4: sin Matter
   if (gameState.currentDimension === 1) {
     if (tvCooldown > 0) tvCooldown -= deltaTime;
     drawTVWorld();
@@ -269,7 +253,6 @@ function draw() {
     return;
   }
 
-  // Catherine: puzzle por cuadrícula
   if (gameState.currentDimension === 3) {
     updateCatherine(deltaTime);
     drawCatherineTower();
@@ -277,14 +260,12 @@ function draw() {
     return;
   }
 
-  // Metaphor: batalla por turnos
   if (gameState.currentDimension === 4) {
     drawMetaphorBattle();
     drawParticles();
     return;
   }
 
-  // P3 y P5: con Matter
   drawFloatingPhrases();
   Engine.update(engine);
   drawConstraints();
@@ -337,6 +318,9 @@ function createLetters() {
   let body = Bodies.rectangle(x, y, 60, 80, {
     restitution: 0.6, friction: 0.05, density: 0.002
   });
+  body.plugin = { isLetter: true };
+  body.collisionFilter = { category: 0x0002, mask: 0xFFFFFFFF };
+
   letters.push(new LetterBody(body, activeChar, gameState.currentDimension));
   World.add(world, body);
 }
@@ -422,7 +406,7 @@ function applyDimension(index) {
 }
 
 // ==========================================
-// P3 — SOMBRAS + EVOKER
+// P3 — SOMBRAS
 // ==========================================
 function createShadows() {
   shadows = [];
@@ -431,14 +415,10 @@ function createShadows() {
     let angle = (TWO_PI / TOTAL_SHADOWS) * i + random(-0.3, 0.3);
     let d = random(150, 250);
     shadows.push({
-      angle: angle,
-      dist: d,
-      r: 30,
-      alive: true,
+      angle: angle, dist: d, r: 30, alive: true,
       pulse: random(TWO_PI),
       orbitSpeed: random(0.005, 0.012) * (random() > 0.5 ? 1 : -1),
-      x: width / 2,
-      y: height / 2
+      x: width / 2, y: height / 2
     });
   }
 }
@@ -455,36 +435,51 @@ function drawShadows() {
     s.x = centerX + cos(s.angle) * s.dist;
     s.y = centerY + sin(s.angle) * s.dist;
     s.pulse += 0.05;
+    let pl = sin(s.pulse) * 5;
 
-    let pulse = sin(s.pulse) * 4;
+    // Estela
+    for (let t = 1; t <= 5; t++) {
+      let pastAngle = s.angle - s.orbitSpeed * t * 8;
+      let px = centerX + cos(pastAngle) * s.dist;
+      let py = centerY + sin(pastAngle) * s.dist;
+      fill(0, 0, 0, 60 - t * 10);
+      noStroke();
+      ellipse(px, py, s.r * 2 - t * 8, s.r * 2 - t * 8);
+    }
 
-    // Cuerpo de la sombra
+    // Cuerpo
     fill(0, 0, 0, 220);
     noStroke();
-    ellipse(s.x, s.y, s.r * 2 + pulse, s.r * 2 + pulse);
+    ellipse(s.x, s.y, s.r * 2 + pl, s.r * 2 + pl);
 
-    // Aura roja
+    // Aura roja pulsante
     noFill();
-    stroke(255, 0, 51, 200);
+    stroke(255, 0, 51, 180 + sin(s.pulse * 2) * 75);
     strokeWeight(2);
-    ellipse(s.x, s.y, s.r * 2 + 12 + pulse, s.r * 2 + 12 + pulse);
+    ellipse(s.x, s.y, s.r * 2 + 14 + pl, s.r * 2 + 14 + pl);
 
-    // Ojos
-    fill(255, 0, 51, 255);
+    // Ojos con glow
+    fill(255, 0, 51);
     noStroke();
-    ellipse(s.x - 8, s.y - 4, 6, 8);
-    ellipse(s.x + 8, s.y - 4, 6, 8);
+    ellipse(s.x - 8, s.y - 4, 7, 9);
+    ellipse(s.x + 8, s.y - 4, 7, 9);
+    fill(255, 200, 200, 200);
+    ellipse(s.x - 8, s.y - 5, 3, 3);
+    ellipse(s.x + 8, s.y - 5, 3, 3);
   }
   pop();
 
-  // HUD
+  // HUD sombras
   push();
   textAlign(CENTER, CENTER);
   textFont('Montserrat');
-  textSize(16);
-  fill("#0099ff");
+  textSize(18);
+  fill(0, 153, 255, 200);
   noStroke();
-  text(`SOMBRAS: ${shadowsKilled} / ${TOTAL_SHADOWS}`, width / 2, 130);
+  text(`SOMBRAS  ${shadowsKilled} / ${TOTAL_SHADOWS}`, width / 2, 155);
+  stroke(0, 153, 255, 100);
+  strokeWeight(1);
+  line(width / 2 - 80, 175, width / 2 + 80, 175);
   pop();
 }
 
@@ -516,7 +511,6 @@ function shootAtShadow() {
     let d = dist(mouseX, mouseY, s.x, s.y);
     if (d < minDist) { minDist = d; closest = s; }
   }
-
   for (let i = 0; i < 10; i++) {
     particles.push({
       type: 'projectile',
@@ -525,29 +519,24 @@ function shootAtShadow() {
       life: 25
     });
   }
-
   if (closest) {
     closest.alive = false;
     shadowsKilled++;
     for (let i = 0; i < 40; i++) {
       particles.push({
-        type: 'hit',
-        pos: { x: closest.x, y: closest.y },
-        vel: { x: random(-8, 8), y: random(-8, 8) },
-        life: 50
+        type: 'hit', pos: { x: closest.x, y: closest.y },
+        vel: { x: random(-8, 8), y: random(-8, 8) }, life: 50
       });
     }
     showNotification(`SOMBRA ELIMINADA`, `${shadowsKilled} / ${TOTAL_SHADOWS}`);
-    if (shadowsKilled >= TOTAL_SHADOWS) {
-      setTimeout(() => sealLetter('A'), 800);
-    }
+    if (shadowsKilled >= TOTAL_SHADOWS) setTimeout(() => sealLetter('A'), 800);
   } else {
     spawnMissEffect(mouseX, mouseY);
   }
 }
 
 // ==========================================
-// P4 — TVs con cooldown
+// P4 — TVs
 // ==========================================
 function setupTVs() {
   TVS = [];
@@ -602,21 +591,20 @@ function drawTVWorld() {
   text("?", tvLetterPos.x, tvLetterPos.y);
   pop();
 
-  // Barra de cooldown
   if (tvCooldown > 0) {
     let cdRatio = tvCooldown / TV_COOLDOWN;
     push();
     noStroke();
     fill(255, 0, 51, 220);
-    rect(width / 2 - 100, 150, 200 * cdRatio, 8, 4);
+    rect(width / 2 - 100, 180, 200 * cdRatio, 8, 4);
     noFill();
     stroke(255, 0, 51, 200);
     strokeWeight(1);
-    rect(width / 2 - 100, 150, 200, 8, 4);
+    rect(width / 2 - 100, 180, 200, 8, 4);
     fill(255, 0, 51, 200);
     textAlign(CENTER, CENTER);
     textSize(10);
-    text("COOLDOWN", width / 2, 135);
+    text("COOLDOWN", width / 2, 165);
     pop();
   }
 
@@ -699,14 +687,15 @@ function drawEscapeZone() {
 }
 
 // ==========================================
-// CATHERINE — Puzzle de torre
+// CATHERINE — TOWER
 // ==========================================
 function initCatherine() {
-  catherineState.cellSize = 55;
+  const cs = 60;
+  catherineState.cellSize = cs;
   catherineState.cols = 9;
-  catherineState.rows = 12;
-  catherineState.offsetX = (width - catherineState.cols * catherineState.cellSize) / 2;
-  catherineState.offsetY = (height - catherineState.rows * catherineState.cellSize) / 2 + 60;
+  catherineState.rows = 10;
+  catherineState.offsetX = (width - catherineState.cols * cs) / 2;
+  catherineState.offsetY = height - catherineState.rows * cs - 100;
 
   catherineState.grid = [];
   for (let c = 0; c < catherineState.cols; c++) {
@@ -716,24 +705,22 @@ function initCatherine() {
     }
   }
 
-  catherineState.fallingRows = [];
-  catherineState.lastSpawn = millis();
-  catherineState.spawnInterval = 2400;
-  catherineState.moveCooldown = 0;
-  catherineState.heightScore = 0;
+  for (let c = 0; c < catherineState.cols; c++) {
+    catherineState.grid[c][catherineState.rows - 1] = 'floor';
+  }
 
   catherineState.letterCol = floor(catherineState.cols / 2);
   catherineState.letterRow = catherineState.rows - 2;
   catherineState.grid[catherineState.letterCol][catherineState.letterRow] = 'letter';
 
-  // Piso
-  for (let c = 0; c < catherineState.cols; c++) {
-    catherineState.grid[c][catherineState.rows - 1] = 'floor';
-  }
+  catherineState.fallingBlocks = [];
+  catherineState.lastSpawn = millis();
+  catherineState.spawnInterval = 2200;
+  catherineState.moveCooldown = 0;
+  catherineState.maxHeightReached = 0;
 }
 
 function updateCatherine(dt) {
-  // Movimiento
   catherineState.moveCooldown -= dt;
   if (catherineState.moveCooldown <= 0) {
     if (keyIsDown(LEFT_ARROW)) {
@@ -746,44 +733,37 @@ function updateCatherine(dt) {
     }
   }
 
-  // Filas cayendo
-  for (let fr of catherineState.fallingRows) {
-    fr.y += fr.speed;
-    if (fr.y >= fr.targetY) {
-      // Aterrizar: escribir en grid
-      for (let c = 0; c < catherineState.cols; c++) {
-        if (fr.cells[c] && catherineState.grid[c][fr.row] === null) {
-          catherineState.grid[c][fr.row] = fr.cells[c];
-        }
+  for (let b of catherineState.fallingBlocks) {
+    b.y += b.speed;
+    if (b.y >= b.targetY) {
+      if (catherineState.grid[b.col][b.row] === null) {
+        catherineState.grid[b.col][b.row] = 'block';
       }
-      fr.done = true;
+      b.done = true;
     }
   }
-  catherineState.fallingRows = catherineState.fallingRows.filter(fr => !fr.done);
+  catherineState.fallingBlocks = catherineState.fallingBlocks.filter(b => !b.done);
 
-  // Spawn de nueva fila
   if (millis() - catherineState.lastSpawn > catherineState.spawnInterval) {
-    spawnCatherineRow();
+    spawnCatherineBlock();
     catherineState.lastSpawn = millis();
-    catherineState.spawnInterval = max(1000, catherineState.spawnInterval - 100);
+    catherineState.spawnInterval = max(900, catherineState.spawnInterval - 80);
   }
 
-  // Calcular altura
-  let topRow = catherineState.rows - 1;
-  for (let c = 0; c < catherineState.cols; c++) {
-    for (let r = 0; r < catherineState.rows; r++) {
-      if (catherineState.grid[c][r] !== null && catherineState.grid[c][r] !== 'floor') {
-        if (r < topRow) topRow = r;
-      }
+  let belowRow = catherineState.letterRow + 1;
+  if (belowRow < catherineState.rows &&
+      catherineState.grid[catherineState.letterCol][belowRow] === 'block') {
+    if (catherineState.letterRow > 0 &&
+        catherineState.grid[catherineState.letterCol][catherineState.letterRow - 1] === null) {
+      catherineState.grid[catherineState.letterCol][catherineState.letterRow] = null;
+      catherineState.letterRow -= 1;
+      catherineState.grid[catherineState.letterCol][catherineState.letterRow] = 'letter';
+      catherineState.maxHeightReached = max(catherineState.maxHeightReached, catherineState.rows - catherineState.letterRow);
     }
   }
-  catherineState.heightScore = catherineState.rows - topRow;
 
-  // Victoria
-  if (catherineState.letterRow <= 1) {
-    if (!gameState.foundLetters['U']) {
-      sealLetter('U');
-    }
+  if (catherineState.letterRow <= 1 && !gameState.foundLetters['U']) {
+    sealLetter('U');
   }
 }
 
@@ -791,7 +771,6 @@ function moveCatherineLetter(dir) {
   let newCol = catherineState.letterCol + dir;
   if (newCol < 0 || newCol >= catherineState.cols) return;
   if (catherineState.grid[newCol][catherineState.letterRow] !== null) return;
-
   catherineState.grid[catherineState.letterCol][catherineState.letterRow] = null;
   catherineState.letterCol = newCol;
   catherineState.grid[catherineState.letterCol][catherineState.letterRow] = 'letter';
@@ -800,40 +779,32 @@ function moveCatherineLetter(dir) {
 function moveCatherineLetterUp() {
   let newRow = catherineState.letterRow - 1;
   if (newRow < 0) return;
+  let belowRow = catherineState.letterRow + 1;
+  if (belowRow >= catherineState.rows) return;
+  if (catherineState.grid[catherineState.letterCol][belowRow] !== 'block') return;
   if (catherineState.grid[catherineState.letterCol][newRow] !== null) return;
-
   catherineState.grid[catherineState.letterCol][catherineState.letterRow] = null;
   catherineState.letterRow = newRow;
   catherineState.grid[catherineState.letterCol][catherineState.letterRow] = 'letter';
-
-  for (let i = 0; i < 15; i++) {
-    particles.push({
-      type: 'rune',
-      pos: {
-        x: catherineState.offsetX + catherineState.letterCol * catherineState.cellSize + catherineState.cellSize / 2,
-        y: catherineState.offsetY + catherineState.letterRow * catherineState.cellSize + catherineState.cellSize / 2
-      },
-      vel: { x: random(-2, 2), y: random(-3, -1) },
-      life: 40,
-      char: random(["✦", "◆", "✧"])
-    });
-  }
 }
 
-function spawnCatherineRow() {
-  let row = 0;
-  let cells = [];
-  let hole = floor(random(catherineState.cols));
-  for (let c = 0; c < catherineState.cols; c++) {
-    if (c === hole) cells[c] = null;
-    else cells[c] = 'block';
+function spawnCatherineBlock() {
+  // Elige una columna al azar
+  let col = floor(random(catherineState.cols));
+  // La fila objetivo: la más baja disponible en esa columna
+  let targetRow = -1;
+  for (let r = catherineState.rows - 1; r >= 0; r--) {
+    if (catherineState.grid[col][r] === null) { targetRow = r; break; }
+    if (catherineState.grid[col][r] === 'letter') { targetRow = r - 1; break; }
   }
-  catherineState.fallingRows.push({
-    row: row,
-    y: -100,
-    targetY: catherineState.offsetY + row * catherineState.cellSize,
-    speed: 3,
-    cells: cells,
+  if (targetRow < 0) return;
+
+  catherineState.fallingBlocks.push({
+    col: col,
+    row: targetRow,
+    y: -80,
+    targetY: catherineState.offsetY + targetRow * catherineState.cellSize,
+    speed: 5,
     done: false
   });
 }
@@ -843,38 +814,32 @@ function drawCatherineTower() {
   const ox = catherineState.offsetX;
   const oy = catherineState.offsetY;
 
-  // Fondo con rombos
+  // Fondo tablero con glow
   push();
+  rectMode(CORNER);
+  noStroke();
+  fill(20, 0, 15, 200);
+  rect(ox - 10, oy - 10, catherineState.cols * cs + 20, catherineState.rows * cs + 20, 8);
+  stroke(255, 0, 170, 100);
+  strokeWeight(2);
   noFill();
-  stroke(255, 0, 170, 20);
-  strokeWeight(1);
-  let offset = frameCount * 0.5;
-  for (let x = -100; x < width + 100; x += 80) {
-    for (let y = -100; y < height + 100; y += 80) {
-      push();
-      translate(x + offset % 80, y + offset % 80);
-      rotate(PI / 4);
-      rect(0, 0, 40, 40);
-      pop();
-    }
-  }
+  rect(ox - 10, oy - 10, catherineState.cols * cs + 20, catherineState.rows * cs + 20, 8);
   pop();
 
   // Grid
   push();
-  // Celdas de fondo
   for (let c = 0; c < catherineState.cols; c++) {
     for (let r = 0; r < catherineState.rows; r++) {
       let x = ox + c * cs;
       let y = oy + r * cs;
       noFill();
-      stroke(255, 0, 170, 15);
+      stroke(255, 0, 170, 20);
       strokeWeight(1);
       rect(x, y, cs, cs);
     }
   }
 
-  // Bloques del grid
+  // Bloques y letra
   for (let c = 0; c < catherineState.cols; c++) {
     for (let r = 0; r < catherineState.rows; r++) {
       let cell = catherineState.grid[c][r];
@@ -884,13 +849,12 @@ function drawCatherineTower() {
 
       if (cell === 'block') {
         noStroke();
-        fill(255, 0, 170, 180);
+        fill(255, 0, 170, 200);
         rect(x + 2, y + 2, cs - 4, cs - 4, 4);
         stroke(255, 150, 220, 255);
         strokeWeight(2);
         noFill();
         rect(x + 2, y + 2, cs - 4, cs - 4, 4);
-        // Cruz
         stroke(255, 100, 200, 100);
         strokeWeight(1);
         line(x + 8, y + 8, x + cs - 8, y + cs - 8);
@@ -900,7 +864,6 @@ function drawCatherineTower() {
         fill(255, 0, 170, 80);
         rect(x + 2, y + 2, cs - 4, cs - 4, 4);
       } else if (cell === 'letter') {
-        // La letra 'U'
         noStroke();
         fill(20, 0, 15);
         rect(x + 2, y + 2, cs - 4, cs - 4, 8);
@@ -918,39 +881,36 @@ function drawCatherineTower() {
     }
   }
 
-  // Filas cayendo
-  for (let fr of catherineState.fallingRows) {
-    for (let c = 0; c < catherineState.cols; c++) {
-      if (!fr.cells[c]) continue;
-      let x = ox + c * cs;
-      let y = fr.y;
-      noStroke();
-      fill(255, 0, 170, 220);
-      rect(x + 2, y + 2, cs - 4, cs - 4, 4);
-      stroke(255, 150, 220, 255);
-      strokeWeight(2);
-      noFill();
-      rect(x + 2, y + 2, cs - 4, cs - 4, 4);
-    }
+  // Bloques cayendo
+  for (let b of catherineState.fallingBlocks) {
+    let x = ox + b.col * cs;
+    let y = b.y;
+    noStroke();
+    fill(255, 0, 170, 240);
+    rect(x + 2, y + 2, cs - 4, cs - 4, 4);
+    stroke(255, 150, 220, 255);
+    strokeWeight(2);
+    noFill();
+    rect(x + 2, y + 2, cs - 4, cs - 4, 4);
   }
   pop();
 
   // Flechas indicadoras
   push();
-  fill(255, 0, 170, 200);
+  fill(255, 0, 170, 220);
   noStroke();
   textAlign(CENTER, CENTER);
   textSize(14);
-  text("← →  mover     ESPACIO  subir", width / 2, oy + catherineState.rows * cs + 30);
+  textFont('JetBrains Mono');
+  text("← →  mover     ESPACIO  subir", width / 2, oy + catherineState.rows * cs + 40);
   pop();
 
-  // HUD
   document.getElementById('cath-height').textContent =
-    `ALTURA: ${catherineState.heightScore} / ${catherineState.rows - 2}`;
+    `ALTURA: ${catherineState.maxHeightReached} / ${catherineState.rows - 2}`;
 }
 
 // ==========================================
-// METAPHOR — Batalla
+// METAPHOR — BATALLA
 // ==========================================
 function initMetaphorBattle() {
   metaphorBattle = {
@@ -985,7 +945,6 @@ function addBattleLog(msg) {
 }
 
 function drawMetaphorBattle() {
-  // Runas
   if (frameCount % 20 === 0) {
     particles.push({
       type: 'rune',
@@ -999,69 +958,70 @@ function drawMetaphorBattle() {
   // Círculo mágico
   push();
   let circleR = 200 + sin(frameCount * 0.03) * 8;
-  noFill();
-  stroke(230, 184, 0, 80);
-  strokeWeight(3);
-  drawingContext.setLineDash([15, 10]);
-  ellipse(width / 2, height / 2 + 30, circleR * 2, circleR * 2);
-  drawingContext.setLineDash([]);
-  for (let i = 0; i < 8; i++) {
-    let angle = (TWO_PI / 8) * i + frameCount * 0.005;
+  for (let i = 0; i < 3; i++) {
+    noFill();
+    stroke(230, 184, 0, 30 - i * 8);
+    strokeWeight(2 + i);
+    drawingContext.setLineDash([15 - i * 3, 10]);
+    ellipse(width / 2, height / 2 + 30, (circleR + i * 25) * 2, (circleR + i * 25) * 2);
+    drawingContext.setLineDash([]);
+  }
+  for (let i = 0; i < 12; i++) {
+    let angle = (TWO_PI / 12) * i + frameCount * 0.005;
     let sx = width / 2 + cos(angle) * circleR;
     let sy = height / 2 + 30 + sin(angle) * circleR;
-    fill(230, 184, 0, 180);
+    fill(230, 184, 0, 180 + sin(frameCount * 0.05 + i) * 75);
     noStroke();
     textAlign(CENTER, CENTER);
-    textSize(20);
-    text(["ᚠ", "ᚢ", "ᚦ", "ᚨ", "ᚱ", "ᚲ", "ᚷ", "ᚹ"][i], sx, sy);
+    textSize(22);
+    text(["ᚠ", "ᚢ", "ᚦ", "ᚨ", "ᚱ", "ᚲ", "ᚷ", "ᚹ", "ᚺ", "ᚾ", "ᛁ", "ᛃ"][i], sx, sy);
   }
   pop();
 
-  // Homo Gorleo
   drawHomoGorleo(width / 2, height / 2 - 60);
 
-  // Manzanas
   if (metaphorBattle.boss.applesAvailable && metaphorBattle.boss.apples > 0) {
     push();
     for (let i = 0; i < metaphorBattle.boss.apples; i++) {
       let ax = width / 2 - 40 + i * 40;
-      let ay = height / 2 - 200;
-      fill(255, 0, 51, 200 + sin(frameCount * 0.1 + i) * 55);
+      let ay = height / 2 - 210;
+      fill(255, 0, 51, 60);
       noStroke();
-      ellipse(ax, ay, 25, 25);
-      fill(255, 200, 200, 150);
-      ellipse(ax - 5, ay - 5, 8, 8);
+      ellipse(ax, ay, 45, 45);
+      fill(255, 0, 51, 200 + sin(frameCount * 0.1 + i) * 55);
+      ellipse(ax, ay, 28, 28);
+      fill(255, 200, 200, 200);
+      ellipse(ax - 6, ay - 6, 8, 8);
+      stroke(80, 50, 20);
+      strokeWeight(2);
+      line(ax, ay - 14, ax + 3, ay - 20);
     }
     fill(255, 200, 0);
     textAlign(CENTER, CENTER);
     textSize(12);
-    text("¡HAZ CLIC EN LAS MANZANAS!", width / 2, height / 2 - 235);
+    textFont('JetBrains Mono');
+    text("¡HAZ CLIC EN LAS MANZANAS!", width / 2, height / 2 - 245);
     pop();
   }
 
-  // Letra 'S' atrapada
   push();
   translate(width / 2, height / 2 + 30);
-  fill(230, 184, 0, 200 + sin(frameCount * 0.05) * 55);
+  let sPulse = 200 + sin(frameCount * 0.05) * 55;
+  fill(230, 184, 0, sPulse);
   noStroke();
   textAlign(CENTER, CENTER);
   textFont('Montserrat');
-  textSize(56);
+  textSize(64);
   text("S", 0, 0);
   pop();
 
-  // Panel de batalla
   drawBattlePanel();
 
-  // Fase enemiga
   if (metaphorBattle.phase === 'enemy') {
     metaphorBattle.enemyActionDelay--;
-    if (metaphorBattle.enemyActionDelay <= 0) {
-      performEnemyAction();
-    }
+    if (metaphorBattle.enemyActionDelay <= 0) performEnemyAction();
   }
 
-  // Victoria
   if (metaphorBattle.phase === 'victory') {
     push();
     fill(230, 184, 0, 100 + sin(frameCount * 0.1) * 50);
@@ -1069,19 +1029,16 @@ function drawMetaphorBattle() {
     rect(0, 0, width, height);
     textAlign(CENTER, CENTER);
     textFont('Montserrat');
-    textSize(48);
+    textSize(52);
     fill(255);
     text("¡GORLEO DERROTADO!", width / 2, height / 2 - 60);
     textSize(18);
     fill(255, 220, 100);
-    text("La letra 'S' es liberada", width / 2, height / 2);
+    text("La letra 'S' es liberada", width / 2, height / 2 + 10);
     pop();
-    if (!gameState.foundLetters['S']) {
-      sealLetter('S');
-    }
+    if (!gameState.foundLetters['S']) sealLetter('S');
   }
 
-  // Derrota
   if (metaphorBattle.phase === 'defeat') {
     push();
     fill(255, 0, 51, 100);
@@ -1089,11 +1046,11 @@ function drawMetaphorBattle() {
     rect(0, 0, width, height);
     textAlign(CENTER, CENTER);
     textFont('Montserrat');
-    textSize(48);
+    textSize(52);
     fill(255);
     text("DERROTA...", width / 2, height / 2 - 40);
     textSize(16);
-    text("Presiona R para reintentar", width / 2, height / 2 + 20);
+    text("Presiona R para reintentar", width / 2, height / 2 + 30);
     pop();
   }
 }
@@ -1103,47 +1060,64 @@ function drawHomoGorleo(cx, cy) {
   push();
   translate(cx, cy);
 
+  // Aura oscura
+  for (let i = 0; i < 3; i++) {
+    fill(120, 60, 150, 15 - i * 4);
+    noStroke();
+    ellipse(0, 0, 200 + i * 40, 200 + i * 40);
+  }
+
   // Cuerpo
-  let bodyAlpha = map(b.hp, 0, b.maxHp, 50, 200);
-  fill(120, 60, 150, bodyAlpha);
-  stroke(180, 100, 200, 255);
+  let bodyAlpha = map(b.hp, 0, b.maxHp, 80, 240);
+  let bodyGrad = drawingContext.createRadialGradient(0, 0, 0, 0, 0, 90);
+  bodyGrad.addColorStop(0, `rgba(180, 100, 220, ${bodyAlpha / 255})`);
+  bodyGrad.addColorStop(1, `rgba(60, 20, 90, ${bodyAlpha / 255})`);
+  drawingContext.fillStyle = bodyGrad;
+  stroke(200, 120, 220, 255);
   strokeWeight(3);
-  ellipse(0, 0, 160, 160);
+  ellipse(0, 0, 170, 170);
 
   // Ojos
   fill(255, 0, 51);
   noStroke();
-  ellipse(-30, -20, 20, 25);
-  ellipse(30, -20, 20, 25);
+  ellipse(-32, -22, 22, 28);
+  ellipse(32, -22, 22, 28);
+  fill(255, 200, 200, 200);
+  ellipse(-32, -25, 8, 8);
+  ellipse(32, -25, 8, 8);
   fill(0);
-  ellipse(-30, -20, 8, 10);
-  ellipse(30, -20, 8, 10);
+  ellipse(-32, -22, 6, 10);
+  ellipse(32, -22, 6, 10);
 
   // Boca
-  stroke(255, 0, 51);
-  strokeWeight(3);
+  stroke(255, 0, 51, 220);
+  strokeWeight(4);
   noFill();
-  arc(0, 20, 60, 30, 0, PI);
+  arc(0, 22, 70, 35, 0, PI);
 
   // Ala
   if (!b.wingDestroyed) {
     push();
-    translate(70, -60);
-    rotate(sin(frameCount * 0.05) * 0.1 - 0.3);
-    fill(150, 80, 180, 200);
+    translate(75, -65);
+    rotate(sin(frameCount * 0.05) * 0.15 - 0.3);
+    fill(200, 120, 220, 50);
+    noStroke();
+    ellipse(0, 0, 90, 130);
+    fill(150, 80, 180, 220);
     stroke(200, 120, 220, 255);
     strokeWeight(2);
-    ellipse(0, 0, 60, 100);
+    ellipse(0, 0, 65, 105);
     fill(255, 200, 0);
     noStroke();
     textAlign(CENTER, CENTER);
-    textSize(12);
-    text(`${b.wingHP}`, 0, 0);
+    textSize(13);
+    textFont('JetBrains Mono');
+    text(b.wingHP, 0, 0);
     pop();
   } else {
     push();
-    translate(70, -60);
-    rotate(-0.5);
+    translate(75, -65);
+    rotate(-0.6);
     fill(60, 30, 80, 100);
     noStroke();
     ellipse(0, 0, 40, 60);
@@ -1153,22 +1127,26 @@ function drawHomoGorleo(cx, cy) {
   // Pierna
   if (!b.legDestroyed) {
     push();
-    translate(-60, 70);
+    translate(-65, 75);
     rotate(0.3);
-    fill(150, 80, 180, 200);
+    fill(200, 120, 220, 50);
+    noStroke();
+    ellipse(0, 0, 80, 110);
+    fill(150, 80, 180, 220);
     stroke(200, 120, 220, 255);
     strokeWeight(2);
-    ellipse(0, 0, 50, 80);
+    ellipse(0, 0, 55, 85);
     fill(255, 200, 0);
     noStroke();
     textAlign(CENTER, CENTER);
-    textSize(12);
-    text(`${b.legHP}`, 0, 0);
+    textSize(13);
+    textFont('JetBrains Mono');
+    text(b.legHP, 0, 0);
     pop();
   } else {
     push();
-    translate(-60, 70);
-    rotate(0.6);
+    translate(-65, 75);
+    rotate(0.7);
     fill(60, 30, 80, 100);
     noStroke();
     ellipse(0, 0, 30, 50);
@@ -1177,88 +1155,131 @@ function drawHomoGorleo(cx, cy) {
 
   // HP Bar
   let hpRatio = b.hp / b.maxHp;
-  fill(40, 40, 40, 200);
+  push();
   noStroke();
-  rect(-80, -110, 160, 12, 6);
-  fill(255, 0, 51, 200);
-  rect(-80, -110, 160 * hpRatio, 12, 6);
-  fill(255);
+  fill(20, 20, 20, 220);
+  rect(-90, -120, 180, 14, 7);
+  let grad = drawingContext.createLinearGradient(-90, 0, 90, 0);
+  grad.addColorStop(0, '#ff0033');
+  grad.addColorStop(1, '#ff0088');
+  drawingContext.fillStyle = grad;
+  rect(-90, -120, 180 * hpRatio, 14, 7);
+  stroke(255, 0, 51, 200);
+  strokeWeight(1);
+  noFill();
+  rect(-90, -120, 180, 14, 7);
+  pop();
+
+  fill(255, 220, 220);
   textAlign(CENTER, CENTER);
   textSize(11);
-  text(`HOMO GORLEO · ${b.hp} / ${b.maxHp}`, 0, -95);
+  textFont('JetBrains Mono');
+  text(`HOMO GORLEO  ·  ${b.hp} / ${b.maxHp}`, 0, -100);
 
-  // Indicador objetivo
   if (metaphorBattle.selectedTarget === 'body') {
+    push();
     noFill();
-    stroke(255, 200, 0, 200);
+    stroke(255, 200, 0, 200 + sin(frameCount * 0.1) * 55);
     strokeWeight(2);
-    ellipse(0, 0, 180, 180);
+    drawingContext.setLineDash([8, 6]);
+    ellipse(0, 0, 200, 200);
+    drawingContext.setLineDash([]);
+    pop();
   }
 
   pop();
 }
 
 function drawBattlePanel() {
-  let panelY = height - 200;
+  let panelY = height - 210;
   push();
-  fill(10, 10, 15, 230);
+
+  let grad = drawingContext.createLinearGradient(0, panelY, 0, height);
+  grad.addColorStop(0, 'rgba(20, 15, 5, 0.95)');
+  grad.addColorStop(1, 'rgba(5, 5, 10, 0.98)');
+  drawingContext.fillStyle = grad;
   noStroke();
-  rect(0, panelY, width, 200);
-  stroke(230, 184, 0, 100);
-  strokeWeight(1);
+  rect(0, panelY, width, 210);
+
+  stroke(230, 184, 0, 200);
+  strokeWeight(2);
+  line(0, panelY, width, panelY);
+  stroke(230, 184, 0, 60);
+  strokeWeight(8);
   line(0, panelY, width, panelY);
 
-  // HP Jugador
-  fill(40, 40, 40);
+  // HP del jugador
+  push();
   noStroke();
-  rect(30, panelY + 20, 200, 16, 8);
-  let playerHPRatio = metaphorBattle.playerHP / metaphorBattle.playerMaxHP;
-  fill(0, 200, 100, 200);
-  rect(30, panelY + 20, 200 * playerHPRatio, 16, 8);
+  fill(20, 20, 20, 240);
+  rect(30, panelY + 25, 220, 18, 9);
+  let hpRatio = metaphorBattle.playerHP / metaphorBattle.playerMaxHP;
+  let hpGrad = drawingContext.createLinearGradient(30, 0, 250, 0);
+  hpGrad.addColorStop(0, '#00cc66');
+  hpGrad.addColorStop(1, '#00ff88');
+  drawingContext.fillStyle = hpGrad;
+  rect(30, panelY + 25, 220 * hpRatio, 18, 9);
+  stroke(0, 255, 100, 150);
+  strokeWeight(1);
+  noFill();
+  rect(30, panelY + 25, 220, 18, 9);
+
   fill(255);
   textAlign(LEFT, CENTER);
-  textSize(11);
-  text(`HP: ${metaphorBattle.playerHP} / ${metaphorBattle.playerMaxHP}`, 30, panelY + 50);
-
   textSize(12);
+  textFont('JetBrains Mono');
+  text(`HP ${metaphorBattle.playerHP} / ${metaphorBattle.playerMaxHP}`, 30, panelY + 60);
+
+  textSize(11);
   fill(230, 184, 0);
-  text(`TURNOS: ${metaphorBattle.turnIcons} / ${metaphorBattle.maxTurnIcons}`, 30, panelY + 75);
+  text("TURNOS", 30, panelY + 85);
+  for (let i = 0; i < metaphorBattle.maxTurnIcons; i++) {
+    let filled = i < ceil(metaphorBattle.turnIcons);
+    fill(filled ? 230 : 60, filled ? 184 : 60, 0);
+    noStroke();
+    text("★", 90 + i * 20, panelY + 85);
+  }
 
   fill(255);
   textSize(11);
-  text(`OBJETIVO: ${getTargetName()}`, 30, panelY + 100);
-  text(`POCIONES: ${metaphorBattle.potions}`, 30, panelY + 125);
+  text(`OBJETIVO`, 30, panelY + 110);
+  fill(230, 184, 0);
+  text(getTargetName().toUpperCase(), 100, panelY + 110);
 
-  // Botones
-  let btnY = panelY + 30;
+  fill(255);
+  text(`POCIONES`, 30, panelY + 135);
+  fill(0, 255, 100);
+  text(`${metaphorBattle.potions}`, 110, panelY + 135);
+  pop();
+
+  let btnY = panelY + 40;
   let btnW = 140;
-  let btnH = 40;
-  let btnGap = 20;
-  let startX = 280;
+  let btnH = 44;
+  let btnGap = 18;
+  let startX = 290;
 
   drawBattleButton(startX + (btnW + btnGap) * 0, btnY, btnW, btnH, "ATACAR", '#0099ff', () => performMetaphorAction('attack'));
-  drawBattleButton(startX + (btnW + btnGap) * 1, btnY, btnW, btnH, "Cyc (Viento)", '#e6b800', () => performMetaphorAction('skill'));
-  drawBattleButton(startX + (btnW + btnGap) * 2, btnY, btnW, btnH, "DEFENDER", '#666666', () => performMetaphorAction('defend'));
+  drawBattleButton(startX + (btnW + btnGap) * 1, btnY, btnW, btnH, "CYC (Viento)", '#e6b800', () => performMetaphorAction('skill'));
+  drawBattleButton(startX + (btnW + btnGap) * 2, btnY, btnW, btnH, "DEFENDER", '#888888', () => performMetaphorAction('defend'));
   drawBattleButton(startX + (btnW + btnGap) * 3, btnY, btnW, btnH, "POCIÓN", '#00cc66', () => performMetaphorAction('potion'));
 
-  // Log
   textAlign(LEFT, TOP);
   textSize(10);
+  textFont('JetBrains Mono');
   for (let i = 0; i < metaphorBattle.log.length; i++) {
-    let alpha = map(i, 0, metaphorBattle.log.length - 1, 255, 100);
-    fill(150, 150, 150, alpha);
-    text(metaphorBattle.log[i], startX + 620, btnY + i * 16);
+    let alpha = map(i, 0, metaphorBattle.log.length - 1, 255, 80);
+    fill(180, 180, 180, alpha);
+    text("> " + metaphorBattle.log[i], startX + 620, btnY + i * 16);
   }
 
-  // Mensaje
   if (metaphorBattle.messageTimer > 0) {
     metaphorBattle.messageTimer--;
     textAlign(CENTER, CENTER);
     textFont('Montserrat');
-    textSize(26);
-    fill(230, 184, 0, min(255, metaphorBattle.messageTimer * 4));
+    textSize(28);
+    fill(230, 184, 0, min(255, metaphorBattle.messageTimer * 5));
     noStroke();
-    text(metaphorBattle.message, width / 2, panelY - 40);
+    text(metaphorBattle.message, width / 2, panelY - 50);
   }
 
   pop();
@@ -1269,12 +1290,30 @@ function drawBattleButton(x, y, w, h, label, col, onClick) {
   let hovered = mouseX > x && mouseX < x + w && mouseY > y && mouseY < y + h;
   let disabled = metaphorBattle.phase !== 'player';
 
-  fill(hovered && !disabled ? 50 : 30, 30, 40, 240);
+  let grad = drawingContext.createLinearGradient(x, y, x, y + h);
+  if (disabled) {
+    grad.addColorStop(0, 'rgba(30,30,30,0.9)');
+    grad.addColorStop(1, 'rgba(15,15,15,0.9)');
+  } else if (hovered) {
+    grad.addColorStop(0, 'rgba(60,60,80,0.98)');
+    grad.addColorStop(1, 'rgba(30,30,45,0.98)');
+  } else {
+    grad.addColorStop(0, 'rgba(40,40,55,0.9)');
+    grad.addColorStop(1, 'rgba(20,20,30,0.9)');
+  }
+  drawingContext.fillStyle = grad;
   stroke(disabled ? 80 : (hovered ? 255 : col));
   strokeWeight(2);
-  rect(x, y, w, h, 4);
+  rect(x, y, w, h, 6);
 
-  fill(disabled ? 80 : (hovered ? 255 : 220));
+  if (hovered && !disabled) {
+    noFill();
+    stroke(red(color(col)), green(color(col)), blue(color(col)), 100);
+    strokeWeight(6);
+    rect(x, y, w, h, 6);
+  }
+
+  fill(disabled ? 90 : (hovered ? 255 : 230));
   noStroke();
   textAlign(CENTER, CENTER);
   textSize(13);
@@ -1284,7 +1323,6 @@ function drawBattleButton(x, y, w, h, label, col, onClick) {
 
   if (hovered && !disabled && mouseIsPressed) {
     onClick();
-    // Pequeño delay para no spamear
     metaphorBattle.messageTimer = 1;
   }
 }
@@ -1337,7 +1375,6 @@ function performMetaphorAction(action) {
     }
   }
 
-  // Destruir partes
   if (boss.wingHP <= 0 && !boss.wingDestroyed) {
     boss.wingDestroyed = true;
     addBattleLog('¡Ala destruida!');
@@ -1367,9 +1404,7 @@ function performEnemyAction() {
     boss.apples--;
     boss.hp = min(boss.maxHp, boss.hp + 40);
     addBattleLog('¡Gorleo come manzana! +40 HP');
-    if (boss.apples > 0) {
-      boss.applesAvailable = true;
-    }
+    if (boss.apples > 0) boss.applesAvailable = true;
   } else {
     let damage;
     if (random() < 0.5) {
@@ -1400,21 +1435,18 @@ function performEnemyAction() {
 function handleMetaphorClick(mx, my) {
   if (!metaphorBattle.active || metaphorBattle.phase !== 'player') return;
 
-  // Manzanas
   if (metaphorBattle.boss.applesAvailable && metaphorBattle.boss.apples > 0) {
     for (let i = 0; i < metaphorBattle.boss.apples; i++) {
       let ax = width / 2 - 40 + i * 40;
-      let ay = height / 2 - 200;
+      let ay = height / 2 - 210;
       if (dist(mx, my, ax, ay) < 20) {
         metaphorBattle.boss.apples--;
         metaphorBattle.boss.applesAvailable = metaphorBattle.boss.apples > 0;
         addBattleLog('¡Manzana derribada!');
         for (let j = 0; j < 20; j++) {
           particles.push({
-            type: 'hit',
-            pos: { x: ax, y: ay },
-            vel: { x: random(-5, 5), y: random(-5, 5) },
-            life: 30
+            type: 'hit', pos: { x: ax, y: ay },
+            vel: { x: random(-5, 5), y: random(-5, 5) }, life: 30
           });
         }
         return;
@@ -1422,17 +1454,16 @@ function handleMetaphorClick(mx, my) {
     }
   }
 
-  // Seleccionar objetivo
   let bx = width / 2;
   let by = height / 2 - 60;
 
-  if (!metaphorBattle.boss.wingDestroyed && dist(mx, my, bx + 70, by - 60) < 40) {
+  if (!metaphorBattle.boss.wingDestroyed && dist(mx, my, bx + 75, by - 65) < 40) {
     metaphorBattle.selectedTarget = 'wing';
     metaphorBattle.message = 'OBJETIVO: Ala';
     metaphorBattle.messageTimer = 60;
     return;
   }
-  if (!metaphorBattle.boss.legDestroyed && dist(mx, my, bx - 60, by + 70) < 40) {
+  if (!metaphorBattle.boss.legDestroyed && dist(mx, my, bx - 65, by + 75) < 40) {
     metaphorBattle.selectedTarget = 'leg';
     metaphorBattle.message = 'OBJETIVO: Pierna';
     metaphorBattle.messageTimer = 60;
@@ -1458,7 +1489,6 @@ function mousePressed() {
 
   if (gameState.currentDimension === 1) {
     if (tvCooldown > 0) {
-      // Penalización por spamear
       tvJumpSpeed = max(400, tvJumpSpeed - 200);
       spawnMissEffect(mouseX, mouseY);
       return;
@@ -1496,9 +1526,7 @@ function mouseReleased() {
 
 function keyPressed() {
   if (gameState.currentDimension === 3) {
-    if (keyCode === 32) { // Espacio
-      moveCatherineLetterUp();
-    }
+    if (keyCode === 32) moveCatherineLetterUp();
   }
   if (gameState.currentDimension === 4 && key === 'r' && metaphorBattle.phase === 'defeat') {
     initMetaphorBattle();
@@ -1626,78 +1654,125 @@ function drawHub() {
 function drawAmbientEffects() {
   let dim = DIMENSIONS[gameState.currentDimension];
 
+  // P3 — Luna Llena + estrellas
   if (gameState.currentDimension === 0) {
-    let pulse = sin(frameCount * 0.03) * 8;
     push();
+    randomSeed(42);
+    for (let i = 0; i < 60; i++) {
+      let sx = random(width);
+      let sy = random(height * 0.7);
+      let twinkle = sin(frameCount * 0.05 + i) * 0.5 + 0.5;
+      fill(200, 220, 255, twinkle * 180);
+      noStroke();
+      ellipse(sx, sy, 2, 2);
+    }
+
+    let pulse = sin(frameCount * 0.03) * 6;
     noStroke();
-    fill(0, 153, 255, 30);
-    ellipse(width / 2 - 260, height / 2 + 100, 180 + pulse, 180 + pulse);
-    fill(0, 153, 255, 60);
-    ellipse(width / 2 - 260, height / 2 + 100, 150 + pulse * 0.5, 150 + pulse * 0.5);
-    fill(180, 220, 255, 200);
-    ellipse(width / 2 - 260, height / 2 + 100, 120, 120);
+    fill(0, 153, 255, 20);
+    ellipse(width - 200, 200, 280 + pulse, 280 + pulse);
+    fill(0, 153, 255, 50);
+    ellipse(width - 200, 200, 220 + pulse * 0.7, 220 + pulse * 0.7);
+    fill(180, 220, 255, 240);
+    ellipse(width - 200, 200, 160, 160);
+    fill(140, 180, 220, 180);
+    ellipse(width - 215, 185, 35, 35);
+    ellipse(width - 180, 215, 22, 22);
+    ellipse(width - 195, 240, 15, 15);
+
     noFill();
     stroke(dim.color);
     strokeWeight(2);
-    drawingContext.setLineDash([6, 6]);
-    ellipse(width / 2 - 260, height / 2 + 100, 140 + pulse, 140 + pulse);
+    drawingContext.setLineDash([8, 8]);
+    ellipse(width - 200, 200, 200 + pulse, 200 + pulse);
     drawingContext.setLineDash([]);
     pop();
   }
 
+  // P4 — Scanlines + niebla
   if (gameState.currentDimension === 1) {
     push();
     noStroke();
-    fill(255, 204, 0, 15);
+    fill(255, 204, 0, 12);
     rect(0, 0, width, height);
-    stroke(0, 0, 0, 30);
-    strokeWeight(1);
-    for (let y = 0; y < height; y += 4) line(0, y, width, y);
-    pop();
-  }
 
-  if (gameState.currentDimension === 2) {
-    push();
-    stroke(255, 255, 255, 15);
-    strokeWeight(2);
-    for (let i = 0; i < 8; i++) {
-      let x = (frameCount * 2 + i * 200) % (width + 200) - 100;
-      line(x, 0, x + 100, height);
+    for (let y = (frameCount * 2) % 8; y < height; y += 8) {
+      stroke(0, 0, 0, 25);
+      strokeWeight(1);
+      line(0, y, width, y);
+    }
+
+    for (let i = 0; i < 5; i++) {
+      let fogY = (frameCount * 0.5 + i * 200) % (height + 400) - 200;
+      fill(255, 204, 0, 8);
+      noStroke();
+      ellipse(width / 2, fogY, width * 1.5, 300);
     }
     pop();
   }
 
+  // P5 — Líneas cinéticas
+  if (gameState.currentDimension === 2) {
+    push();
+    stroke(255, 0, 51, 40);
+    strokeWeight(3);
+    for (let i = 0; i < 12; i++) {
+      let x = (frameCount * 3 + i * 150) % (width + 200) - 100;
+      line(x, 0, x + 60, height);
+    }
+
+    if (frameCount % 30 === 0) {
+      stroke(255, 255, 255, 60);
+      strokeWeight(1);
+      let rx = random(width);
+      line(rx, 0, rx + 30, height);
+    }
+    pop();
+  }
+
+  // Catherine — Rombos
   if (gameState.currentDimension === 3) {
     push();
     noFill();
-    stroke(255, 0, 170, 20);
-    strokeWeight(1);
     let offset = frameCount * 0.5;
-    for (let x = -100; x < width + 100; x += 80) {
-      for (let y = -100; y < height + 100; y += 80) {
+    for (let x = -100; x < width + 100; x += 90) {
+      for (let y = -100; y < height + 100; y += 90) {
+        let alpha = 20 + sin(frameCount * 0.02 + x * 0.01 + y * 0.01) * 15;
+        stroke(255, 0, 170, alpha);
+        strokeWeight(1);
         push();
-        translate(x + offset % 80, y + offset % 80);
+        translate(x + offset % 90, y + offset % 90);
         rotate(PI / 4);
-        rect(0, 0, 40, 40);
+        rect(0, 0, 50, 50);
         pop();
       }
     }
     pop();
   }
 
+  // Metaphor — Runas + luz
   if (gameState.currentDimension === 4) {
     push();
-    noFill();
-    stroke(230, 184, 0, 30);
-    strokeWeight(1);
-    for (let i = 0; i < 6; i++) {
-      let angle = (TWO_PI / 6) * i + frameCount * 0.01;
-      let r = 400 + sin(frameCount * 0.02 + i) * 20;
-      let x = width / 2 + cos(angle) * r;
-      let y = height / 2 + sin(angle) * r;
-      ellipse(x, y, 40, 40);
+    for (let i = 0; i < 3; i++) {
+      let r = 400 + sin(frameCount * 0.02 + i) * 30 + i * 100;
+      noFill();
+      stroke(230, 184, 0, 25 - i * 5);
+      strokeWeight(2);
+      drawingContext.setLineDash([15, 15]);
+      ellipse(width / 2, height / 2, r, r);
+      drawingContext.setLineDash([]);
     }
     pop();
+
+    if (frameCount % 25 === 0) {
+      particles.push({
+        type: 'rune',
+        pos: { x: random(width), y: height + 30 },
+        vel: { x: random(-0.4, 0.4), y: random(-1.2, -0.5) },
+        life: 240,
+        char: random(["✦", "◆", "✧", "◇", "✶", "ᚠ", "ᚢ", "ᚦ", "ᚨ"])
+      });
+    }
   }
 }
 
@@ -1862,6 +1937,9 @@ function updateWorldSignature() {
   document.getElementById('world-signature').innerHTML = sigs[gameState.currentDimension] || "";
 }
 
+// ==========================================
+// RESIZE
+// ==========================================
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
   escapeZone.x = width - 280;
