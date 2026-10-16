@@ -1,5 +1,5 @@
 // ==========================================
-// ATLUS: Multiverse Physical System — v7 RESTAURADO
+// ATLUS: Multiverse Physical System — v7.1
 // ==========================================
 
 const { Engine, World, Bodies, Body, Constraint, Vector, Mouse, MouseConstraint } = Matter;
@@ -40,7 +40,7 @@ const DIMENSIONS = [
     phrases: ["You'll never see it coming", "Take your heart", "Wake up, get up, get out there", "Are you free?", "Steal back your future"],
     winCondition: "reachEscape", music: "music/p5.mp3" },
   { name: "Mundo 04 · Tower of Babel", letterTarget: "U", color: "#ff00aa", bg: "#14000b",
-    desc: "Sube bloques: apila bloques con el mouse debajo de la letra para elevarla.",
+    desc: "Sube la torre: mueve con ← → ↑ ↓. Los bloques caen y se apilan. Sube hasta la cima.",
     gravity: { x: 0, y: 0 },
     phrases: ["It's a nightmare", "Don't look down", "Love is over", "What do you desire?", "Will you climb?"],
     winCondition: "stackTower", music: "music/catherine.mp3" },
@@ -51,6 +51,7 @@ const DIMENSIONS = [
     winCondition: "defeatGorleo", music: "music/metaphor.mp3" }
 ];
 
+// P3
 let isCharging = false;
 let chargeStart = 0;
 let chargePower = 0;
@@ -58,6 +59,7 @@ let shadows = [];
 let shadowsKilled = 0;
 const TOTAL_SHADOWS = 5;
 
+// P4
 let TVS = [];
 let tvLetterPos = { x: 0, y: 0 };
 let tvCurrentIndex = 0;
@@ -69,9 +71,11 @@ let tvVulnerableTimer = 0;
 let tvCooldown = 0;
 const TV_COOLDOWN = 500;
 
+// P5
 let mementosWalls = [];
 let escapeZone = { x: 0, y: 0, w: 220, h: 160 };
 
+// Catherine
 let catherineState = {
   cellSize: 60,
   cols: 9,
@@ -88,6 +92,7 @@ let catherineState = {
   maxHeightReached: 0
 };
 
+// Metaphor
 let metaphorBattle = {
   active: false,
   playerHP: 100, playerMaxHP: 100,
@@ -109,6 +114,9 @@ let metaphorBattle = {
   playerDefending: false
 };
 
+// ==========================================
+// SETUP
+// ==========================================
 function setup() {
   let canvas = createCanvas(windowWidth, windowHeight);
   canvas.parent("canvas-holder");
@@ -134,6 +142,9 @@ function setup() {
   escapeZone.y = height - 240;
 }
 
+// ==========================================
+// SELECCIÓN
+// ==========================================
 function setupWorldSelect() {
   const selectScreen = document.getElementById('world-select');
   const gameUI = document.getElementById('game-ui');
@@ -205,6 +216,9 @@ function resetWorld() {
   document.getElementById('catherine-hud').classList.add('hidden');
 }
 
+// ==========================================
+// MÚSICA
+// ==========================================
 function playMusicForDimension(index) {
   stopMusic();
   const dim = DIMENSIONS[index];
@@ -216,6 +230,9 @@ function playMusicForDimension(index) {
 }
 function stopMusic() { if (bgMusic) { bgMusic.stop(); bgMusic = null; } }
 
+// ==========================================
+// DRAW
+// ==========================================
 function draw() {
   if (!gameState.started) { background("#06060a"); return; }
 
@@ -264,6 +281,9 @@ function draw() {
   checkLetterFound();
 }
 
+// ==========================================
+// LÍMITES
+// ==========================================
 function createBoundaries() {
   let t = 100;
   let opts = { isStatic: true, friction: 0.5 };
@@ -275,6 +295,9 @@ function createBoundaries() {
   ]);
 }
 
+// ==========================================
+// CREAR LETRAS
+// ==========================================
 function createLetters() {
   letters = [];
   const chars = ["A", "T", "L", "U", "S"];
@@ -314,6 +337,9 @@ class LetterBody {
   }
 }
 
+// ==========================================
+// APLICAR DIMENSIÓN
+// ==========================================
 function applyDimension(index) {
   const prevIndex = gameState.currentDimension;
   if (prevIndex === 2) {
@@ -376,7 +402,9 @@ function applyDimension(index) {
   playMusicForDimension(index);
 }
 
+// ==========================================
 // P3 — SOMBRAS
+// ==========================================
 function createShadows() {
   shadows = [];
   shadowsKilled = 0;
@@ -496,7 +524,9 @@ function shootAtShadow() {
   }
 }
 
+// ==========================================
 // P4 — TVs
+// ==========================================
 function setupTVs() {
   TVS = [];
   const padX = 220;
@@ -587,7 +617,9 @@ function updateP4Hud() {
   document.getElementById('p4-hits').textContent = `CHANNEL ${tvHitCount} / 5`;
 }
 
+// ==========================================
 // P5 — MEMENTOS
+// ==========================================
 function buildMementosLabyrinth() {
   for (let w of mementosWalls) World.remove(world, w);
   mementosWalls = [];
@@ -643,7 +675,9 @@ function drawEscapeZone() {
   pop();
 }
 
-// CATHERINE — auto-subida (sin ESPACIO, como v7 original)
+// ==========================================
+// CATHERINE — con flechas ↑ ↓
+// ==========================================
 function initCatherine() {
   const cs = 60;
   catherineState.cellSize = cs;
@@ -669,7 +703,7 @@ function initCatherine() {
   catherineState.grid[catherineState.letterCol][catherineState.letterRow] = 'letter';
 
   catherineState.fallingBlocks = [];
-  catherineState.lastSpawn = millis();
+  catherineState.lastSpawn = millis() - 2200; // Primer bloque cae YA
   catherineState.spawnInterval = 2200;
   catherineState.moveCooldown = 0;
   catherineState.maxHeightReached = 0;
@@ -680,14 +714,23 @@ function updateCatherine(dt) {
   if (catherineState.moveCooldown <= 0) {
     if (keyIsDown(LEFT_ARROW)) {
       moveCatherineLetter(-1);
-      catherineState.moveCooldown = 160;
+      catherineState.moveCooldown = 140;
     }
     if (keyIsDown(RIGHT_ARROW)) {
       moveCatherineLetter(1);
-      catherineState.moveCooldown = 160;
+      catherineState.moveCooldown = 140;
+    }
+    if (keyIsDown(UP_ARROW)) {
+      moveCatherineLetterUp();
+      catherineState.moveCooldown = 180;
+    }
+    if (keyIsDown(DOWN_ARROW)) {
+      moveCatherineLetterDown();
+      catherineState.moveCooldown = 180;
     }
   }
 
+  // Bloques cayendo
   for (let b of catherineState.fallingBlocks) {
     b.y += b.speed;
     if (b.y >= b.targetY) {
@@ -699,6 +742,7 @@ function updateCatherine(dt) {
   }
   catherineState.fallingBlocks = catherineState.fallingBlocks.filter(b => !b.done);
 
+  // Spawn
   if (millis() - catherineState.lastSpawn > catherineState.spawnInterval) {
     spawnCatherineBlock();
     catherineState.lastSpawn = millis();
@@ -732,28 +776,69 @@ function moveCatherineLetter(dir) {
   catherineState.grid[catherineState.letterCol][catherineState.letterRow] = 'letter';
 }
 
+function moveCatherineLetterUp() {
+  let newRow = catherineState.letterRow - 1;
+  if (newRow < 0) return;
+  // Requiere bloque o piso debajo
+  let belowRow = catherineState.letterRow + 1;
+  if (belowRow < catherineState.rows) {
+    let belowCell = catherineState.grid[catherineState.letterCol][belowRow];
+    if (belowCell !== 'block' && belowCell !== 'floor') return;
+  }
+  if (catherineState.grid[catherineState.letterCol][newRow] !== null) return;
+  catherineState.grid[catherineState.letterCol][catherineState.letterRow] = null;
+  catherineState.letterRow = newRow;
+  catherineState.grid[catherineState.letterCol][catherineState.letterRow] = 'letter';
+  catherineState.maxHeightReached = max(catherineState.maxHeightReached, catherineState.rows - catherineState.letterRow);
+
+  for (let i = 0; i < 12; i++) {
+    particles.push({
+      type: 'rune',
+      pos: {
+        x: catherineState.offsetX + catherineState.letterCol * catherineState.cellSize + catherineState.cellSize / 2,
+        y: catherineState.offsetY + catherineState.letterRow * catherineState.cellSize + catherineState.cellSize / 2
+      },
+      vel: { x: random(-2, 2), y: random(-3, -1) },
+      life: 40,
+      char: random(["✦", "◆", "✧"])
+    });
+  }
+}
+
+function moveCatherineLetterDown() {
+  let newRow = catherineState.letterRow + 1;
+  if (newRow >= catherineState.rows) return;
+  if (catherineState.grid[catherineState.letterCol][newRow] !== null) return;
+  catherineState.grid[catherineState.letterCol][catherineState.letterRow] = null;
+  catherineState.letterRow = newRow;
+  catherineState.grid[catherineState.letterCol][catherineState.letterRow] = 'letter';
+}
+
 function spawnCatherineBlock() {
   let availableCols = [];
   for (let c = 0; c < catherineState.cols; c++) {
     if (catherineState.grid[c][0] === null) availableCols.push(c);
   }
   if (availableCols.length === 0) return;
-  let col = random(availableCols);
+
+  let col = availableCols[floor(random(availableCols.length))];
 
   let targetRow = -1;
   for (let r = catherineState.rows - 1; r >= 0; r--) {
-    let cell = catherineState.grid[col][r];
-    if (cell === null) { targetRow = r; }
-    else break;
+    if (catherineState.grid[col][r] === null) {
+      targetRow = r;
+    } else {
+      break;
+    }
   }
   if (targetRow < 0) return;
 
   catherineState.fallingBlocks.push({
     col: col,
     row: targetRow,
-    y: -80,
+    y: catherineState.offsetY - 100,
     targetY: catherineState.offsetY + targetRow * catherineState.cellSize,
-    speed: 5,
+    speed: 6,
     done: false
   });
 }
@@ -846,14 +931,16 @@ function drawCatherineTower() {
   textAlign(CENTER, CENTER);
   textSize(14);
   textFont('JetBrains Mono');
-  text("← →  mover     (sube sola con bloques debajo)", width / 2, oy + catherineState.rows * cs + 40);
+  text("← →  mover     ↑ subir     ↓ bajar", width / 2, oy + catherineState.rows * cs + 40);
   pop();
 
   document.getElementById('cath-height').textContent =
     `ALTURA: ${catherineState.maxHeightReached} / ${catherineState.rows - 2}`;
 }
 
-// METAPHOR
+// ==========================================
+// METAPHOR — BATALLA
+// ==========================================
 function initMetaphorBattle() {
   metaphorBattle = {
     active: true,
@@ -1403,7 +1490,9 @@ function handleMetaphorClick(mx, my) {
   }
 }
 
+// ==========================================
 // MOUSE
+// ==========================================
 function mousePressed() {
   if (!gameState.started || gameState.inHub) return;
 
@@ -1449,7 +1538,9 @@ function mouseReleased() {
   }
 }
 
+// ==========================================
 // VICTORIA
+// ==========================================
 function checkLetterFound() {
   if (gameState.inHub) return;
   if (letters.length === 0) return;
@@ -1501,6 +1592,9 @@ function sealLetter(char) {
   }
 }
 
+// ==========================================
+// HUB
+// ==========================================
 function goToHub() {
   gameState.inHub = true;
   letters = [];
@@ -1556,7 +1650,9 @@ function drawHub() {
   }
 }
 
+// ==========================================
 // AMBIENTE
+// ==========================================
 function drawAmbientEffects() {
   let dim = DIMENSIONS[gameState.currentDimension];
 
@@ -1659,7 +1755,9 @@ function drawAmbientEffects() {
   }
 }
 
+// ==========================================
 // PARTÍCULAS
+// ==========================================
 function drawParticles() {
   for (let i = particles.length - 1; i >= 0; i--) {
     let p = particles[i];
@@ -1726,7 +1824,9 @@ function spawnMissEffect(x, y) {
   particles.push({ type: 'miss', pos: { x, y }, life: 40 });
 }
 
+// ==========================================
 // FRASES
+// ==========================================
 function spawnFloatingPhrases() {
   floatingPhrases = [];
   let dim = DIMENSIONS[gameState.currentDimension];
@@ -1777,7 +1877,9 @@ function drawConstraints() {
   pop();
 }
 
+// ==========================================
 // UI
+// ==========================================
 function updateWordBar() {
   document.querySelectorAll('.word-slot').forEach(slot => {
     const index = parseInt(slot.dataset.index);
@@ -1811,6 +1913,9 @@ function updateWorldSignature() {
   document.getElementById('world-signature').innerHTML = sigs[gameState.currentDimension] || "";
 }
 
+// ==========================================
+// RESIZE
+// ==========================================
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
   escapeZone.x = width - 280;
