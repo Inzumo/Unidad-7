@@ -1,5 +1,5 @@
 // ==========================================
-// ATLUS: Multiverse Physical System — v9
+// ATLUS: Multiverse Physical System — v10
 // ==========================================
 
 const { Engine, World, Bodies, Body, Constraint, Vector, Mouse, MouseConstraint } = Matter;
@@ -40,7 +40,7 @@ const DIMENSIONS = [
     phrases: ["You'll never see it coming", "Take your heart", "Wake up, get up, get out there", "Are you free?", "Steal back your future"],
     winCondition: "reachEscape", music: "music/p5.mp3" },
   { name: "Mundo 04 · Tower of Babel", letterTarget: "U", color: "#ff00aa", bg: "#14000b",
-    desc: "Sube la torre: ← → mover, ↑ subir, ↓ bajar. Si un bloque cae encima, ¡estás aplastado!",
+    desc: "Sube la torre: ← → mover, ↑ subir/romper bloque, ↓ bajar. Si un bloque cae encima, ¡estás aplastado!",
     gravity: { x: 0, y: 0 },
     phrases: ["It's a nightmare", "Don't look down", "Love is over", "What do you desire?", "Will you climb?"],
     winCondition: "stackTower", music: "music/catherine.mp3" },
@@ -65,7 +65,7 @@ let tvLetterPos = { x: 0, y: 0 };
 let tvCurrentIndex = 0;
 let tvHitCount = 0;
 let tvLastMove = 0;
-let tvJumpSpeed = 2000;
+let tvJumpSpeed = 1000;
 let tvVulnerable = false;
 let tvVulnerableTimer = 0;
 let tvCooldown = 0;
@@ -102,7 +102,7 @@ let metaphorBattle = {
   turnIcons: 1, maxTurnIcons: 2,
   phase: 'player',
   boss: {
-    hp: 100, maxHp: 100,
+    hp: 150, maxHp: 150, // Vida aumentada
     wingHP: 40, wingMaxHP: 40,
     legHP: 60, legMaxHP: 60,
     apples: 2, applesAvailable: false,
@@ -472,7 +472,7 @@ function drawShadows() {
   textSize(16);
   fill(0, 153, 255, 220);
   noStroke();
-  text(`SOMBRAS: ${shadowsKilled} / ${TOTAL_SHADOWS}`, width / 2, 160);
+  text(`SOMBRAS: ${shadowsKilled} / ${TOTAL_SHADOWS}`, width / 2, 260);
   pop();
 }
 
@@ -536,6 +536,8 @@ function setupTVs() {
   const padX = 220;
   const padTop = 180;
   const yBottom = height - 420;
+  tvJumpSpeed = 1000; // Más rápido
+  
   TVS.push({ x: padX, y: padTop, r: 80 });
   TVS.push({ x: width - padX, y: padTop, r: 80 });
   TVS.push({ x: width / 2, y: height / 2 - 60, r: 90 });
@@ -549,7 +551,7 @@ function createTVLetter() {
   tvLetterPos.y = TVS[tvCurrentIndex].y;
   tvHitCount = 0;
   tvLastMove = millis();
-  tvJumpSpeed = 2000;
+  tvJumpSpeed = 1000;
   tvVulnerable = false;
   tvCooldown = 0;
 }
@@ -559,22 +561,43 @@ function drawTVWorld() {
     let tv = TVS[i];
     let isActive = (i === tvCurrentIndex) && !tvVulnerable;
     let isVuln = (i === tvCurrentIndex) && tvVulnerable;
+    
     push();
-    noFill();
+    translate(tv.x, tv.y);
+    rectMode(CENTER);
+    
+    // Diseño Retro
+    fill(30, 25, 10);
     stroke(isVuln ? "#ffffff" : (isActive ? "#ffcc00" : "#444"));
     strokeWeight(isActive || isVuln ? 4 : 2);
-    rect(tv.x - tv.r, tv.y - tv.r, tv.r * 2, tv.r * 2, 14);
-    pop();
+    rect(0, 0, tv.r * 2, tv.r * 2, 10);
+    
+    // Pantalla
+    fill(10, 10, 5);
+    noStroke();
+    rect(0, 5, tv.r * 1.6, tv.r * 1.4, 8);
+    
+    // Scanlines
     if (isActive || isVuln) {
-      push();
       stroke(255, 204, 0, 40);
       strokeWeight(1);
-      for (let y = tv.y - tv.r; y < tv.y + tv.r; y += 6) {
-        line(tv.x - tv.r, y, tv.x + tv.r, y);
+      for (let y = -tv.r * 0.7; y < tv.r * 0.7; y += 6) {
+        line(-tv.r * 0.8, y, tv.r * 0.8, y);
       }
-      pop();
     }
+    // Antenas
+    stroke(isActive ? "#ffcc00" : "#444");
+    strokeWeight(3);
+    line(-20, -tv.r, -40, -tv.r - 30);
+    line(20, -tv.r, 40, -tv.r - 30);
+    // Botones
+    fill(isActive ? "#ffcc00" : "#444");
+    ellipse(tv.r * 0.7, tv.r * 0.4, 8, 8);
+    ellipse(tv.r * 0.7, tv.r * 0.6, 8, 8);
+    
+    pop();
   }
+  
   push();
   textAlign(CENTER, CENTER);
   textFont('Montserrat');
@@ -611,9 +634,9 @@ function drawTVWorld() {
     spawnStaticParticles();
   }
 
-  if (tvVulnerable && millis() - tvVulnerableTimer > 1000) {
+  if (tvVulnerable && millis() - tvVulnerableTimer > 800) {
     tvVulnerable = false;
-    tvJumpSpeed = max(600, tvJumpSpeed - 200);
+    tvJumpSpeed = max(300, tvJumpSpeed - 150); // Se acelera mucho
   }
 }
 
@@ -627,19 +650,24 @@ function updateP4Hud() {
 function buildMementosLabyrinth() {
   for (let w of mementosWalls) World.remove(world, w);
   mementosWalls = [];
-  const t = 30;
-  const opts = { isStatic: true, friction: 0.3 };
+  const t = 40; // Paredes gruesas
+  const opts = { isStatic: true, friction: 0.1 };
   const w = width, h = height;
+  
   const walls = [
-    Bodies.rectangle(w * 0.35, h * 0.22, w * 0.5, t, opts),
-    Bodies.rectangle(w * 0.10, h * 0.40, t, h * 0.3, opts),
-    Bodies.rectangle(w * 0.65, h * 0.48, w * 0.5, t, opts),
-    Bodies.rectangle(w * 0.90, h * 0.40, t, h * 0.28, opts),
-    Bodies.rectangle(w * 0.35, h * 0.70, w * 0.5, t, opts),
+    Bodies.rectangle(w * 0.35, h * 0.25, w * 0.5, t, opts),
+    Bodies.rectangle(w * 0.10, h * 0.45, t, h * 0.35, opts),
+    Bodies.rectangle(w * 0.65, h * 0.55, w * 0.5, t, opts),
+    Bodies.rectangle(w * 0.90, h * 0.45, t, h * 0.3, opts),
+    Bodies.rectangle(w * 0.35, h * 0.75, w * 0.5, t, opts),
     Bodies.rectangle(w * 0.10, h * 0.85, t, h * 0.2, opts),
-    Bodies.rectangle(w * 0.55, h * 0.88, w * 0.3, t, opts)
+    Bodies.rectangle(w * 0.55, h * 0.90, w * 0.3, t, opts)
   ];
-  for (let wall of walls) { World.add(world, wall); mementosWalls.push(wall); }
+  
+  for (let wall of walls) { 
+    World.add(world, wall); 
+    mementosWalls.push(wall); 
+  }
 }
 
 function drawMementosWalls() {
@@ -647,16 +675,37 @@ function drawMementosWalls() {
   for (let w of mementosWalls) {
     let wWidth = w.bounds.max.x - w.bounds.min.x;
     let wHeight = w.bounds.max.y - w.bounds.min.y;
+    
     push();
     translate(w.position.x, w.position.y);
-    rectMode(CENTER);
+    
+    // Sombra de la pared
     noStroke();
-    fill(255, 0, 51, 120);
-    rect(0, 0, wWidth, wHeight);
-    stroke(255, 0, 51, 255);
+    fill(20, 0, 5, 200);
+    rect(-wWidth/2 + 8, -wHeight/2 + 8, wWidth, wHeight, 4);
+    
+    // Cuerpo de la cinta
+    fill(230, 0, 40);
+    rect(-wWidth/2, -wHeight/2, wWidth, wHeight, 4);
+    
+    // Brillo
+    fill(255, 100, 120, 150);
+    rect(-wWidth/2, -wHeight/2, wWidth, wHeight * 0.2, 4);
+    
+    // Bordes
+    stroke(0, 0, 0, 255);
     strokeWeight(3);
     noFill();
-    rect(0, 0, wWidth, wHeight);
+    rect(-wWidth/2, -wHeight/2, wWidth, wHeight, 4);
+    
+    // Líneas
+    stroke(150, 0, 20, 150);
+    strokeWeight(1);
+    if (wWidth > wHeight) {
+      line(-wWidth/2 + 10, 0, wWidth/2 - 10, 0);
+    } else {
+      line(0, -wHeight/2 + 10, 0, wHeight/2 - 10);
+    }
     pop();
   }
   pop();
@@ -664,18 +713,40 @@ function drawMementosWalls() {
 
 function drawEscapeZone() {
   push();
+  let ez = escapeZone;
+  let cx = ez.x + ez.w / 2;
+  let cy = ez.y + ez.h / 2;
+  
+  // Fondo
+  fill(50, 0, 10, 200);
+  noStroke();
+  rect(ez.x, ez.y, ez.w, ez.h, 14);
+  
+  // Energía
+  stroke(255, 0, 50, 150);
+  strokeWeight(2);
+  for (let i = 0; i < 8; i++) {
+    let a = (TWO_PI / 8) * i + frameCount * 0.05;
+    let x1 = cx + cos(a) * (ez.w / 3);
+    let y1 = cy + sin(a) * (ez.h / 3);
+    let x2 = cx + cos(a) * (ez.w / 2);
+    let y2 = cy + sin(a) * (ez.h / 2);
+    line(x1, y1, x2, y2);
+  }
+  
+  // Borde
   noFill();
-  stroke(255, 0, 51, 220);
-  strokeWeight(3);
-  drawingContext.setLineDash([10, 8]);
-  rect(escapeZone.x, escapeZone.y, escapeZone.w, escapeZone.h, 14);
-  drawingContext.setLineDash([]);
+  stroke(255, 0, 50, 255);
+  strokeWeight(4);
+  rect(ez.x, ez.y, ez.w, ez.h, 14);
+  
+  // Texto
   textAlign(CENTER, CENTER);
-  textSize(16);
-  fill(255, 0, 51, 240);
+  textSize(18);
+  fill(255);
   noStroke();
   textFont('Montserrat');
-  text("ESCAPE", escapeZone.x + escapeZone.w / 2, escapeZone.y + escapeZone.h / 2);
+  text("ESCAPE", cx, cy);
   pop();
 }
 
@@ -754,15 +825,32 @@ function updateCatherine(dt) {
     catherineState.lastSpawn = millis();
   }
 
+  // Auto-subida si hay bloque justo debajo
   let belowRow = catherineState.letterRow + 1;
   if (belowRow < catherineState.rows &&
       catherineState.grid[catherineState.letterCol][belowRow] === 'block') {
     if (catherineState.letterRow > 0 &&
         catherineState.grid[catherineState.letterCol][catherineState.letterRow - 1] === null) {
+      
+      // Romper bloque de abajo
+      catherineState.grid[catherineState.letterCol][belowRow] = null;
+      
+      // Subir letra
       catherineState.grid[catherineState.letterCol][catherineState.letterRow] = null;
       catherineState.letterRow -= 1;
       catherineState.grid[catherineState.letterCol][catherineState.letterRow] = 'letter';
       catherineState.maxHeightReached = max(catherineState.maxHeightReached, catherineState.rows - 1 - catherineState.letterRow);
+
+      // Partículas
+      for(let i=0; i<10; i++){
+        particles.push({
+          type: 'hit', 
+          pos: { x: catherineState.offsetX + catherineState.letterCol * catherineState.cellSize + catherineState.cellSize/2, 
+                 y: catherineState.offsetY + belowRow * catherineState.cellSize + catherineState.cellSize/2 },
+          vel: { x: random(-4, 4), y: random(-4, 0) },
+          life: 30
+        });
+      }
     }
   }
 
@@ -792,10 +880,25 @@ function moveCatherineLetterUp() {
   if (belowCell !== 'block' && belowCell !== 'floor') return;
   if (catherineState.grid[catherineState.letterCol][newRow] !== null) return;
 
+  // Romper bloque
+  if (belowCell === 'block') {
+    catherineState.grid[catherineState.letterCol][belowRow] = null;
+  }
+
   catherineState.grid[catherineState.letterCol][catherineState.letterRow] = null;
   catherineState.letterRow = newRow;
   catherineState.grid[catherineState.letterCol][catherineState.letterRow] = 'letter';
   catherineState.maxHeightReached = max(catherineState.maxHeightReached, catherineState.rows - 1 - catherineState.letterRow);
+
+  for(let i=0; i<10; i++){
+    particles.push({
+      type: 'hit', 
+      pos: { x: catherineState.offsetX + catherineState.letterCol * catherineState.cellSize + catherineState.cellSize/2, 
+             y: catherineState.offsetY + catherineState.letterRow * catherineState.cellSize + catherineState.cellSize },
+      vel: { x: random(-4, 4), y: random(-4, 0) },
+      life: 30
+    });
+  }
 }
 
 function moveCatherineLetterDown() {
@@ -899,6 +1002,18 @@ function drawCatherineTower() {
         textFont('Montserrat');
         textSize(cs * 0.7);
         text('U', x + cs / 2, y + cs / 2);
+
+        // Flecha para subir
+        let belowRow = r + 1;
+        if (belowRow < catherineState.rows && catherineState.grid[c][belowRow] === 'block') {
+          let bounce = sin(frameCount * 0.2) * 5;
+          fill(255, 200, 0);
+          triangle(
+            x + cs/2, y - 5 + bounce,
+            x + cs/2 - 10, y + 5 + bounce,
+            x + cs/2 + 10, y + 5 + bounce
+          );
+        }
       }
     }
   }
@@ -924,7 +1039,7 @@ function drawCatherineTower() {
   textAlign(CENTER, CENTER);
   textSize(13);
   textFont('JetBrains Mono');
-  text("← →  mover     ↑ subir     ↓ bajar", width / 2, oy + catherineState.rows * cs + 40);
+  text("← → mover   ↑ subir/romper bloque   ↓ bajar", width / 2, oy + catherineState.rows * cs + 40);
   pop();
 
   if (catherineState.gameOver) {
@@ -958,7 +1073,7 @@ function initMetaphorBattle() {
     turnIcons: 1, maxTurnIcons: 2,
     phase: 'player',
     boss: {
-      hp: 100, maxHp: 100,
+      hp: 150, maxHp: 150,
       wingHP: 40, wingMaxHP: 40,
       legHP: 60, legMaxHP: 60,
       apples: 2, applesAvailable: false,
@@ -1094,122 +1209,141 @@ function drawHomoGorleo(cx, cy) {
   push();
   translate(cx, cy);
 
-  for (let i = 0; i < 3; i++) {
-    fill(120, 60, 150, 15 - i * 4);
+  // Aura oscura
+  for (let i = 0; i < 4; i++) {
+    fill(60, 10, 80, 20 - i * 4);
     noStroke();
-    ellipse(0, 0, 200 + i * 40, 200 + i * 40);
+    ellipse(0, 0, 240 + i * 40, 240 + i * 40);
   }
 
-  let bodyAlpha = map(b.hp, 0, b.maxHp, 80, 240);
-  let bodyGrad = drawingContext.createRadialGradient(0, 0, 0, 0, 0, 90);
-  bodyGrad.addColorStop(0, `rgba(180, 100, 220, ${bodyAlpha / 255})`);
-  bodyGrad.addColorStop(1, `rgba(60, 20, 90, ${bodyAlpha / 255})`);
+  // Cuerpo base
+  let bodyAlpha = map(b.hp, 0, b.maxHp, 80, 255);
+  let bodyGrad = drawingContext.createRadialGradient(0, -30, 20, 0, 0, 100);
+  bodyGrad.addColorStop(0, `rgba(120, 50, 160, ${bodyAlpha / 255})`);
+  bodyGrad.addColorStop(1, `rgba(30, 5, 40, ${bodyAlpha / 255})`);
   drawingContext.fillStyle = bodyGrad;
-  stroke(200, 120, 220, 255);
+  stroke(180, 80, 220, 255);
   strokeWeight(3);
-  ellipse(0, 0, 170, 170);
+  ellipse(0, 0, 180, 190);
 
-  fill(255, 0, 51);
-  noStroke();
-  ellipse(-32, -22, 22, 28);
-  ellipse(32, -22, 22, 28);
-  fill(255, 200, 200, 200);
-  ellipse(-32, -25, 8, 8);
-  ellipse(32, -25, 8, 8);
-  fill(0);
-  ellipse(-32, -22, 6, 10);
-  ellipse(32, -22, 6, 10);
-
-  stroke(255, 0, 51, 220);
-  strokeWeight(4);
-  noFill();
-  arc(0, 22, 70, 35, 0, PI);
-
-  if (!b.wingDestroyed) {
-    push();
-    translate(75, -65);
-    rotate(sin(frameCount * 0.05) * 0.15 - 0.3);
-    fill(200, 120, 220, 50);
-    noStroke();
-    ellipse(0, 0, 90, 130);
-    fill(150, 80, 180, 220);
-    stroke(200, 120, 220, 255);
-    strokeWeight(2);
-    ellipse(0, 0, 65, 105);
-    fill(255, 200, 0);
-    noStroke();
-    textAlign(CENTER, CENTER);
-    textSize(13);
-    textFont('JetBrains Mono');
-    text(b.wingHP, 0, 0);
-    pop();
-  } else {
-    push();
-    translate(75, -65);
-    rotate(-0.6);
-    fill(60, 30, 80, 100);
-    noStroke();
-    ellipse(0, 0, 40, 60);
-    pop();
-  }
-
-  if (!b.legDestroyed) {
-    push();
-    translate(-65, 75);
-    rotate(0.3);
-    fill(200, 120, 220, 50);
-    noStroke();
-    ellipse(0, 0, 80, 110);
-    fill(150, 80, 180, 220);
-    stroke(200, 120, 220, 255);
-    strokeWeight(2);
-    ellipse(0, 0, 55, 85);
-    fill(255, 200, 0);
-    noStroke();
-    textAlign(CENTER, CENTER);
-    textSize(13);
-    textFont('JetBrains Mono');
-    text(b.legHP, 0, 0);
-    pop();
-  } else {
-    push();
-    translate(-65, 75);
-    rotate(0.7);
-    fill(60, 30, 80, 100);
-    noStroke();
-    ellipse(0, 0, 30, 50);
-    pop();
-  }
-
-  let hpRatio = b.hp / b.maxHp;
+  // Pelaje
   push();
-  noStroke();
-  fill(20, 20, 20, 220);
-  rect(-90, -120, 180, 14, 7);
-  let grad = drawingContext.createLinearGradient(-90, 0, 90, 0);
-  grad.addColorStop(0, '#ff0033');
-  grad.addColorStop(1, '#ff0088');
-  drawingContext.fillStyle = grad;
-  rect(-90, -120, 180 * hpRatio, 14, 7);
-  stroke(255, 0, 51, 200);
-  strokeWeight(1);
-  noFill();
-  rect(-90, -120, 180, 14, 7);
+  stroke(100, 40, 120, 150);
+  strokeWeight(2);
+  for(let i=0; i<16; i++) {
+    let a = (TWO_PI/16)*i;
+    line(cos(a)*80, sin(a)*80, cos(a)*110, sin(a)*110);
+  }
   pop();
 
-  fill(255, 220, 220);
-  textAlign(CENTER, CENTER);
-  textSize(11);
-  textFont('JetBrains Mono');
-  text(`HOMO GORLEO  ·  ${b.hp} / ${b.maxHp}`, 0, -100);
+  // Ojos
+  fill(255, 0, 50);
+  noStroke();
+  ellipse(-40, -50, 35, 45);
+  ellipse(40, -50, 35, 45);
+  fill(255, 200, 0);
+  ellipse(-40, -50, 15, 25);
+  ellipse(40, -50, 15, 25);
+  fill(0);
+  ellipse(-40, -45, 8, 15);
+  ellipse(40, -45, 8, 15);
+
+  // Cuernos
+  push();
+  fill(230, 184, 0);
+  stroke(255, 230, 100);
+  strokeWeight(2);
+  beginShape();
+  vertex(-60, -90);
+  bezierVertex(-100, -160, -30, -180, -20, -120);
+  endShape(CLOSE);
+  beginShape();
+  vertex(60, -90);
+  bezierVertex(100, -160, 30, -180, 20, -120);
+  endShape(CLOSE);
+  pop();
+
+  // Boca
+  fill(10, 0, 5);
+  stroke(255, 0, 50);
+  strokeWeight(2);
+  arc(0, 20, 100, 60, 0, PI);
+  fill(255);
+  noStroke();
+  triangle(-40, 20, -30, 60, -20, 20);
+  triangle(40, 20, 30, 60, 20, 20);
+  triangle(-50, 40, -40, 10, -30, 40);
+  triangle(50, 40, 40, 10, 30, 40);
+
+  // Ala
+  if (!b.wingDestroyed) {
+    push();
+    translate(90, -70);
+    rotate(sin(frameCount * 0.05) * 0.1 - 0.3);
+    fill(80, 20, 100, 200);
+    stroke(180, 80, 220);
+    strokeWeight(2);
+    beginShape();
+    vertex(0, 0);
+    bezierVertex(50, -20, 80, -80, 30, -120);
+    bezierVertex(10, -140, -20, -100, -10, -50);
+    endShape(CLOSE);
+    fill(255, 200, 0); noStroke();
+    textSize(14); textFont('JetBrains Mono');
+    text(b.wingHP, 20, -60);
+    pop();
+  } else {
+    push();
+    translate(90, -70);
+    rotate(-0.8);
+    fill(40, 10, 60, 100);
+    noStroke(); ellipse(0, 0, 30, 50);
+    pop();
+  }
+
+  // Pierna
+  if (!b.legDestroyed) {
+    push();
+    translate(-70, 90);
+    rotate(0.4);
+    fill(80, 20, 100, 200);
+    stroke(180, 80, 220);
+    strokeWeight(2);
+    ellipse(0, 0, 60, 100);
+    stroke(255, 200, 0); strokeWeight(3);
+    line(-20, 40, -30, 70);
+    line(0, 45, 0, 75);
+    line(20, 40, 30, 70);
+    fill(255, 200, 0); noStroke();
+    textSize(14); text(b.legHP, 0, 0);
+    pop();
+  } else {
+    push();
+    translate(-70, 90);
+    rotate(1.0);
+    fill(40, 10, 60, 100);
+    noStroke(); ellipse(0, 0, 30, 40);
+    pop();
+  }
+
+  // HP Bar
+  let hpRatio = b.hp / b.maxHp;
+  push();
+  fill(20, 0, 10, 240); stroke(255, 0, 50); strokeWeight(2);
+  rect(-100, -150, 200, 16, 2);
+  let grad = drawingContext.createLinearGradient(-100, 0, 100, 0);
+  grad.addColorStop(0, '#ff0033'); grad.addColorStop(1, '#e6b800');
+  drawingContext.fillStyle = grad; noStroke();
+  rect(-98, -148, 196 * hpRatio, 12, 2);
+  fill(255); textAlign(CENTER, CENTER); textSize(11); textFont('JetBrains Mono');
+  text(`HOMO GORLEO · ${b.hp} / ${b.maxHp}`, 0, -142);
+  pop();
 
   if (metaphorBattle.selectedTarget === 'body') {
     push();
-    noFill();
-    stroke(255, 200, 0, 200 + sin(frameCount * 0.1) * 55);
-    strokeWeight(2);
-    drawingContext.setLineDash([8, 6]);
-    ellipse(0, 0, 200, 200);
+    noFill(); stroke(255, 200, 0, 200 + sin(frameCount * 0.1) * 55);
+    strokeWeight(2); drawingContext.setLineDash([10, 10]);
+    ellipse(0, 0, 220, 230);
     drawingContext.setLineDash([]);
     pop();
   }
@@ -1222,57 +1356,41 @@ function drawBattlePanel() {
   push();
 
   let grad = drawingContext.createLinearGradient(0, panelY, 0, height);
-  grad.addColorStop(0, 'rgba(20, 15, 5, 0.95)');
+  grad.addColorStop(0, 'rgba(15, 10, 5, 0.95)');
   grad.addColorStop(1, 'rgba(5, 5, 10, 0.98)');
   drawingContext.fillStyle = grad;
   noStroke();
   rect(0, panelY, width, 210);
 
-  stroke(230, 184, 0, 200);
-  strokeWeight(2);
+  stroke(230, 184, 0, 200); strokeWeight(2);
   line(0, panelY, width, panelY);
 
   push();
   noStroke();
-  fill(20, 20, 20, 240);
-  rect(30, panelY + 25, 220, 18, 9);
+  fill(20, 20, 20, 240); rect(30, panelY + 25, 220, 18, 9);
   let hpRatio = metaphorBattle.playerHP / metaphorBattle.playerMaxHP;
   let hpGrad = drawingContext.createLinearGradient(30, 0, 250, 0);
-  hpGrad.addColorStop(0, '#00cc66');
-  hpGrad.addColorStop(1, '#00ff88');
+  hpGrad.addColorStop(0, '#00cc66'); hpGrad.addColorStop(1, '#00ff88');
   drawingContext.fillStyle = hpGrad;
   rect(30, panelY + 25, 220 * hpRatio, 18, 9);
-  stroke(0, 255, 100, 150);
-  strokeWeight(1);
-  noFill();
+  stroke(0, 255, 100, 150); strokeWeight(1); noFill();
   rect(30, panelY + 25, 220, 18, 9);
 
-  fill(255);
-  textAlign(LEFT, CENTER);
-  textSize(12);
-  textFont('JetBrains Mono');
+  fill(255); textAlign(LEFT, CENTER); textSize(12); textFont('JetBrains Mono');
   text(`HP ${metaphorBattle.playerHP} / ${metaphorBattle.playerMaxHP}`, 30, panelY + 60);
 
-  textSize(11);
-  fill(230, 184, 0);
-  text("TURNOS", 30, panelY + 85);
+  textSize(11); fill(230, 184, 0); text("TURNOS", 30, panelY + 85);
   for (let i = 0; i < metaphorBattle.maxTurnIcons; i++) {
     let filled = i < ceil(metaphorBattle.turnIcons);
-    fill(filled ? 230 : 60, filled ? 184 : 60, 0);
-    noStroke();
+    fill(filled ? 230 : 60, filled ? 184 : 60, 0); noStroke();
     text("★", 90 + i * 20, panelY + 85);
   }
 
-  fill(255);
-  textSize(11);
-  text(`OBJETIVO`, 30, panelY + 110);
-  fill(230, 184, 0);
-  text(getTargetName().toUpperCase(), 100, panelY + 110);
+  fill(255); textSize(11); text(`OBJETIVO`, 30, panelY + 110);
+  fill(230, 184, 0); text(getTargetName().toUpperCase(), 100, panelY + 110);
 
-  fill(255);
-  text(`POCIONES`, 30, panelY + 135);
-  fill(0, 255, 100);
-  text(`${metaphorBattle.potions}`, 110, panelY + 135);
+  fill(255); text(`POCIONES`, 30, panelY + 135);
+  fill(0, 255, 100); text(`${metaphorBattle.potions}`, 110, panelY + 135);
   pop();
 
   let btnY = panelY + 40;
@@ -1286,9 +1404,7 @@ function drawBattlePanel() {
   drawBattleButton(startX + (btnW + btnGap) * 2, btnY, btnW, btnH, "DEFENDER", '#888888', () => performMetaphorAction('defend'));
   drawBattleButton(startX + (btnW + btnGap) * 3, btnY, btnW, btnH, "POCIÓN", '#00cc66', () => performMetaphorAction('potion'));
 
-  textAlign(LEFT, TOP);
-  textSize(10);
-  textFont('JetBrains Mono');
+  textAlign(LEFT, TOP); textSize(10); textFont('JetBrains Mono');
   for (let i = 0; i < metaphorBattle.log.length; i++) {
     let alpha = map(i, 0, metaphorBattle.log.length - 1, 255, 80);
     fill(180, 180, 180, alpha);
@@ -1297,14 +1413,10 @@ function drawBattlePanel() {
 
   if (metaphorBattle.messageTimer > 0) {
     metaphorBattle.messageTimer--;
-    textAlign(CENTER, CENTER);
-    textFont('Montserrat');
-    textSize(28);
+    textAlign(CENTER, CENTER); textFont('Montserrat'); textSize(28);
     fill(230, 184, 0, min(255, metaphorBattle.messageTimer * 5));
-    noStroke();
-    text(metaphorBattle.message, width / 2, panelY - 50);
+    noStroke(); text(metaphorBattle.message, width / 2, panelY - 50);
   }
-
   pop();
 }
 
@@ -1315,32 +1427,23 @@ function drawBattleButton(x, y, w, h, label, col, onClick) {
 
   let grad = drawingContext.createLinearGradient(x, y, x, y + h);
   if (disabled) {
-    grad.addColorStop(0, 'rgba(30,30,30,0.9)');
-    grad.addColorStop(1, 'rgba(15,15,15,0.9)');
+    grad.addColorStop(0, 'rgba(30,30,30,0.9)'); grad.addColorStop(1, 'rgba(15,15,15,0.9)');
   } else if (hovered) {
-    grad.addColorStop(0, 'rgba(60,60,80,0.98)');
-    grad.addColorStop(1, 'rgba(30,30,45,0.98)');
+    grad.addColorStop(0, 'rgba(60,60,80,0.98)'); grad.addColorStop(1, 'rgba(30,30,45,0.98)');
   } else {
-    grad.addColorStop(0, 'rgba(40,40,55,0.9)');
-    grad.addColorStop(1, 'rgba(20,20,30,0.9)');
+    grad.addColorStop(0, 'rgba(40,40,55,0.9)'); grad.addColorStop(1, 'rgba(20,20,30,0.9)');
   }
   drawingContext.fillStyle = grad;
-  stroke(disabled ? 80 : (hovered ? 255 : col));
-  strokeWeight(2);
+  stroke(disabled ? 80 : (hovered ? 255 : col)); strokeWeight(2);
   rect(x, y, w, h, 6);
 
   if (hovered && !disabled) {
-    noFill();
-    stroke(red(color(col)), green(color(col)), blue(color(col)), 100);
-    strokeWeight(6);
+    noFill(); stroke(red(color(col)), green(color(col)), blue(color(col)), 100); strokeWeight(6);
     rect(x, y, w, h, 6);
   }
 
-  fill(disabled ? 90 : (hovered ? 255 : 230));
-  noStroke();
-  textAlign(CENTER, CENTER);
-  textSize(13);
-  textFont('Space Grotesk');
+  fill(disabled ? 90 : (hovered ? 255 : 230)); noStroke();
+  textAlign(CENTER, CENTER); textSize(13); textFont('Space Grotesk');
   text(label, x + w / 2, y + h / 2);
   pop();
 
@@ -1630,7 +1733,6 @@ function goToHub() {
 
 function drawHub() {
   push();
-  // Fondo oscuro con gradiente
   let bgGrad = drawingContext.createRadialGradient(width/2, height/2, 100, width/2, height/2, 800);
   bgGrad.addColorStop(0, 'rgba(30, 30, 40, 1)');
   bgGrad.addColorStop(1, 'rgba(5, 5, 10, 1)');
@@ -1639,7 +1741,6 @@ function drawHub() {
   rect(0, 0, width, height);
   pop();
 
-  // Partículas doradas
   if (frameCount % 2 === 0) {
     particles.push({
       type: 'gold',
@@ -1652,7 +1753,6 @@ function drawHub() {
   push();
   textAlign(CENTER, CENTER);
   
-  // Título con sombra
   textFont('Montserrat');
   textSize(140);
   fill(255, 0, 51, 100);
@@ -1660,12 +1760,10 @@ function drawHub() {
   fill("#ffcc00");
   text("A T L U S", width / 2, height / 2 - 80);
   
-  // Línea divisoria
   stroke(255, 204, 0, 100);
   strokeWeight(2);
   line(width/2 - 200, height/2 + 10, width/2 + 200, height/2 + 10);
 
-  // Los 5 juegos con sus colores
   const games = [
     { name: "P3", color: "#0099ff" },
     { name: "P4", color: "#ffcc00" },
@@ -1679,12 +1777,10 @@ function drawHub() {
   for (let i = 0; i < 5; i++) {
     fill(games[i].color);
     text(games[i].name, width / 2 - 240 + i * 120, height / 2 + 40);
-    // Puntito de color
     noStroke();
     ellipse(width / 2 - 240 + i * 120, height / 2 + 60, 8, 8);
   }
 
-  // Mensaje final
   textSize(24);
   fill("#ffffff");
   text("Five worlds. One word. Your move.", width / 2, height / 2 + 110);
@@ -1701,7 +1797,6 @@ function drawHub() {
 function drawAmbientEffects() {
   let dim = DIMENSIONS[gameState.currentDimension];
 
-  // P3
   if (gameState.currentDimension === 0) {
     push();
     randomSeed(42);
@@ -1747,7 +1842,6 @@ function drawAmbientEffects() {
     pop();
   }
 
-  // P4
   if (gameState.currentDimension === 1) {
     push();
     stroke(0, 0, 0, 40);
@@ -1766,7 +1860,6 @@ function drawAmbientEffects() {
     pop();
   }
 
-  // P5
   if (gameState.currentDimension === 2) {
     push();
     stroke(255, 0, 51, 30);
@@ -1792,7 +1885,6 @@ function drawAmbientEffects() {
     pop();
   }
 
-  // Catherine
   if (gameState.currentDimension === 3) {
     push();
     noFill();
@@ -1821,7 +1913,6 @@ function drawAmbientEffects() {
     pop();
   }
 
-  // Metaphor
   if (gameState.currentDimension === 4) {
     push();
     noFill();
@@ -1995,6 +2086,27 @@ function updateWordBar() {
       slot.classList.remove('found');
     }
   });
+
+  let allFound = true;
+  document.querySelectorAll('.brand-letter').forEach(el => {
+    const index = parseInt(el.dataset.index);
+    const letter = LETTER_ORDER[index];
+    if (gameState.foundLetters[letter]) {
+      if (el.textContent !== letter) {
+        el.textContent = letter;
+        el.classList.add('found');
+      }
+    } else {
+      el.textContent = "_";
+      el.classList.remove('found');
+      allFound = false;
+    }
+  });
+
+  const brandBar = document.getElementById('brand-bar');
+  if (brandBar) {
+    brandBar.classList.toggle('complete', allFound);
+  }
 }
 
 function showNotification(title, subtitle) {
