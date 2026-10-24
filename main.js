@@ -1,5 +1,5 @@
 // ==========================================
-// ATLUS: Multiverse Physical System — v10
+// ATLUS: Multiverse Physical System — v10.1
 // ==========================================
 
 const { Engine, World, Bodies, Body, Constraint, Vector, Mouse, MouseConstraint } = Matter;
@@ -102,7 +102,7 @@ let metaphorBattle = {
   turnIcons: 1, maxTurnIcons: 2,
   phase: 'player',
   boss: {
-    hp: 150, maxHp: 150, // Vida aumentada
+    hp: 150, maxHp: 150,
     wingHP: 40, wingMaxHP: 40,
     legHP: 60, legMaxHP: 60,
     apples: 2, applesAvailable: false,
@@ -191,6 +191,15 @@ function setupWorldSelect() {
     selectScreen.classList.remove('hidden');
     setTimeout(() => selectScreen.classList.remove('fade-out'), 50);
     gameUI.classList.add('hidden');
+  });
+
+  // Listener global para la R en Metaphor
+  window.addEventListener('keydown', (e) => {
+    if (gameState.started && gameState.currentDimension === 4) {
+      if ((e.key === 'r' || e.key === 'R') && metaphorBattle.phase === 'defeat') {
+        initMetaphorBattle();
+      }
+    }
   });
 }
 
@@ -803,6 +812,7 @@ function updateCatherine(dt) {
     if (keyIsDown(DOWN_ARROW)) { moveCatherineLetterDown(); catherineState.moveCooldown = 200; }
   }
 
+  // Bloques cayendo
   for (let i = catherineState.fallingBlocks.length - 1; i >= 0; i--) {
     let b = catherineState.fallingBlocks[i];
     b.y += b.speed;
@@ -839,7 +849,9 @@ function updateCatherine(dt) {
       catherineState.grid[catherineState.letterCol][catherineState.letterRow] = null;
       catherineState.letterRow -= 1;
       catherineState.grid[catherineState.letterCol][catherineState.letterRow] = 'letter';
-      catherineState.maxHeightReached = max(catherineState.maxHeightReached, catherineState.rows - 1 - catherineState.letterRow);
+      
+      // Actualizar altura dinámicamente
+      catherineState.maxHeightReached = catherineState.rows - 1 - catherineState.letterRow;
 
       // Partículas
       for(let i=0; i<10; i++){
@@ -888,7 +900,7 @@ function moveCatherineLetterUp() {
   catherineState.grid[catherineState.letterCol][catherineState.letterRow] = null;
   catherineState.letterRow = newRow;
   catherineState.grid[catherineState.letterCol][catherineState.letterRow] = 'letter';
-  catherineState.maxHeightReached = max(catherineState.maxHeightReached, catherineState.rows - 1 - catherineState.letterRow);
+  catherineState.maxHeightReached = catherineState.rows - 1 - catherineState.letterRow;
 
   for(let i=0; i<10; i++){
     particles.push({
@@ -905,9 +917,34 @@ function moveCatherineLetterDown() {
   let newRow = catherineState.letterRow + 1;
   if (newRow >= catherineState.rows) return;
   if (catherineState.grid[catherineState.letterCol][newRow] !== null) return;
+
+  // 1. Bajar la letra
   catherineState.grid[catherineState.letterCol][catherineState.letterRow] = null;
   catherineState.letterRow = newRow;
   catherineState.grid[catherineState.letterCol][catherineState.letterRow] = 'letter';
+
+  // 2. Arrastrar los bloques que estaban arriba de la letra hacia abajo
+  for (let r = newRow - 1; r >= 0; r--) {
+    let cell = catherineState.grid[catherineState.letterCol][r];
+    if (cell === 'block') {
+      catherineState.grid[catherineState.letterCol][r + 1] = 'block';
+      catherineState.grid[catherineState.letterCol][r] = null;
+    } else if (cell !== null) {
+      break; // Se detiene si encuentra algo que no es bloque
+    }
+  }
+
+  // 3. Actualizar contador de altura
+  let currentHighest = 0;
+  for (let c = 0; c < catherineState.cols; c++) {
+    for (let r = 0; r < catherineState.rows; r++) {
+      if (catherineState.grid[c][r] === 'letter' || catherineState.grid[c][r] === 'block') {
+        let height = catherineState.rows - 1 - r;
+        if (height > currentHighest) currentHighest = height;
+      }
+    }
+  }
+  catherineState.maxHeightReached = currentHighest;
 }
 
 function spawnCatherineBlock() {
