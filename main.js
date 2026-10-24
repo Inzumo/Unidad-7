@@ -1,5 +1,5 @@
 // ==========================================
-// ATLUS: Multiverse Physical System — v8.2
+// ATLUS: Multiverse Physical System — v9
 // ==========================================
 
 const { Engine, World, Bodies, Body, Constraint, Vector, Mouse, MouseConstraint } = Matter;
@@ -808,7 +808,6 @@ function moveCatherineLetterDown() {
 }
 
 function spawnCatherineBlock() {
-  // Columnas disponibles: la fila 0 debe estar libre
   let cols = [];
   for (let c = 0; c < catherineState.cols; c++) {
     if (catherineState.grid[c][0] === null) cols.push(c);
@@ -817,13 +816,12 @@ function spawnCatherineBlock() {
 
   let col = cols[floor(random(cols.length))];
 
-  // Buscar la fila más baja libre recorriendo DE ARRIBA HACIA ABAJO
   let targetRow = -1;
   for (let r = 0; r < catherineState.rows; r++) {
     if (catherineState.grid[col][r] === null) {
       targetRow = r;
     } else {
-      break; // primer bloque/piso/letra → paramos
+      break;
     }
   }
   if (targetRow < 0) return;
@@ -1632,36 +1630,69 @@ function goToHub() {
 
 function drawHub() {
   push();
-  textAlign(CENTER, CENTER);
-  textFont('Montserrat');
-  textSize(120);
-  fill("#ffcc00");
+  // Fondo oscuro con gradiente
+  let bgGrad = drawingContext.createRadialGradient(width/2, height/2, 100, width/2, height/2, 800);
+  bgGrad.addColorStop(0, 'rgba(30, 30, 40, 1)');
+  bgGrad.addColorStop(1, 'rgba(5, 5, 10, 1)');
+  drawingContext.fillStyle = bgGrad;
   noStroke();
-  text("A T L U S", width / 2, height / 2 - 80);
-
-  textSize(14);
-  textFont('Space Grotesk');
-  fill("#888");
-  const games = ["P3", "P4", "P5", "Catherine", "Metaphor"];
-  for (let i = 0; i < 5; i++) {
-    text(games[i], width / 2 - 260 + i * 130, height / 2 - 10);
-  }
-  textSize(22);
-  fill("#ffffff");
-  text("Five worlds. One word. Your move.", width / 2, height / 2 + 60);
-  textSize(14);
-  fill("#888");
-  text("El mundo es una historia, y tú eres su autor.", width / 2, height / 2 + 100);
+  rect(0, 0, width, height);
   pop();
 
-  if (frameCount % 3 === 0) {
+  // Partículas doradas
+  if (frameCount % 2 === 0) {
     particles.push({
       type: 'gold',
       pos: { x: random(width), y: height + 20 },
-      vel: { x: random(-1, 1), y: random(-3, -1) },
-      life: 120
+      vel: { x: random(-1, 1), y: random(-4, -2) },
+      life: 150
     });
   }
+
+  push();
+  textAlign(CENTER, CENTER);
+  
+  // Título con sombra
+  textFont('Montserrat');
+  textSize(140);
+  fill(255, 0, 51, 100);
+  text("A T L U S", width / 2 + 8, height / 2 - 80 + 8);
+  fill("#ffcc00");
+  text("A T L U S", width / 2, height / 2 - 80);
+  
+  // Línea divisoria
+  stroke(255, 204, 0, 100);
+  strokeWeight(2);
+  line(width/2 - 200, height/2 + 10, width/2 + 200, height/2 + 10);
+
+  // Los 5 juegos con sus colores
+  const games = [
+    { name: "P3", color: "#0099ff" },
+    { name: "P4", color: "#ffcc00" },
+    { name: "P5", color: "#ff0033" },
+    { name: "Catherine", color: "#ff00aa" },
+    { name: "Metaphor", color: "#e6b800" }
+  ];
+  
+  textSize(16);
+  textFont('Space Grotesk');
+  for (let i = 0; i < 5; i++) {
+    fill(games[i].color);
+    text(games[i].name, width / 2 - 240 + i * 120, height / 2 + 40);
+    // Puntito de color
+    noStroke();
+    ellipse(width / 2 - 240 + i * 120, height / 2 + 60, 8, 8);
+  }
+
+  // Mensaje final
+  textSize(24);
+  fill("#ffffff");
+  text("Five worlds. One word. Your move.", width / 2, height / 2 + 110);
+  
+  textSize(14);
+  fill("#888");
+  text("El mundo es una historia, y tú eres su autor.", width / 2, height / 2 + 150);
+  pop();
 }
 
 // ==========================================
@@ -1670,102 +1701,144 @@ function drawHub() {
 function drawAmbientEffects() {
   let dim = DIMENSIONS[gameState.currentDimension];
 
+  // P3
   if (gameState.currentDimension === 0) {
     push();
     randomSeed(42);
-    for (let i = 0; i < 60; i++) {
-      let sx = random(width);
-      let sy = random(height * 0.7);
-      let twinkle = sin(frameCount * 0.05 + i) * 0.5 + 0.5;
-      fill(200, 220, 255, twinkle * 180);
+    for (let i = 0; i < 40; i++) {
+      fill(200, 220, 255, sin(frameCount * 0.02 + i) * 150 + 50);
       noStroke();
-      ellipse(sx, sy, 2, 2);
+      ellipse(random(width), random(height), 2, 2);
     }
-    let pulse = sin(frameCount * 0.03) * 6;
+    
+    let pulse = sin(frameCount * 0.02) * 10;
     noStroke();
-    fill(0, 153, 255, 20);
-    ellipse(width - 200, 200, 280 + pulse, 280 + pulse);
-    fill(0, 153, 255, 50);
-    ellipse(width - 200, 200, 220 + pulse * 0.7, 220 + pulse * 0.7);
-    fill(180, 220, 255, 240);
-    ellipse(width - 200, 200, 160, 160);
-    fill(140, 180, 220, 180);
-    ellipse(width - 215, 185, 35, 35);
-    ellipse(width - 180, 215, 22, 22);
-    ellipse(width - 195, 240, 15, 15);
-    noFill();
-    stroke(dim.color);
-    strokeWeight(2);
-    drawingContext.setLineDash([8, 8]);
-    ellipse(width - 200, 200, 200 + pulse, 200 + pulse);
-    drawingContext.setLineDash([]);
+    fill(0, 255, 100, 20);
+    ellipse(width - 200, 200, 350 + pulse, 350 + pulse);
+    fill(100, 255, 150, 50);
+    ellipse(width - 200, 200, 220, 220);
+    fill(150, 255, 180, 200);
+    ellipse(width - 200, 200, 180, 180);
+    fill(0, 0, 0, 100);
+    ellipse(width - 215, 185, 40, 40);
+
+    for(let i=0; i<3; i++) {
+      push();
+      translate(width - 200, 200);
+      rotate(radians(frameCount * (i%2===0?0.5:-0.5)));
+      stroke(0, 255, 100, 50);
+      strokeWeight(1);
+      noFill();
+      ellipse(0, 0, 250 + i*60, 250 + i*60);
+      stroke(0, 255, 100, 100);
+      let a1 = frameCount * 0.05;
+      let a2 = frameCount * 0.01;
+      line(0, 0, cos(a1)*100, sin(a1)*100);
+      line(0, 0, cos(a2)*80, sin(a2)*80);
+      pop();
+    }
+
+    for (let i = 0; i < 3; i++) {
+      let fogY = (frameCount * 0.5 + i * 200) % (height + 400) - 200;
+      fill(0, 255, 100, 8);
+      noStroke();
+      ellipse(width / 2, fogY, width * 1.5, 200);
+    }
     pop();
   }
 
+  // P4
   if (gameState.currentDimension === 1) {
     push();
-    noStroke();
-    fill(255, 204, 0, 12);
-    rect(0, 0, width, height);
-    for (let y = (frameCount * 2) % 8; y < height; y += 8) {
-      stroke(0, 0, 0, 25);
-      strokeWeight(1);
+    stroke(0, 0, 0, 40);
+    strokeWeight(2);
+    for (let y = (frameCount * 3) % 10; y < height; y += 10) {
       line(0, y, width, y);
     }
+    if (frameCount % 5 === 0) {
+      fill(255, 255, 255, 30);
+      noStroke();
+      rect(random(width), random(height), random(20, 100), 2);
+    }
+    fill(255, 204, 0, 5);
+    noStroke();
+    ellipse(width/2, height/2, width, height);
     pop();
   }
 
+  // P5
   if (gameState.currentDimension === 2) {
     push();
-    stroke(255, 0, 51, 40);
-    strokeWeight(3);
-    for (let i = 0; i < 12; i++) {
-      let x = (frameCount * 3 + i * 150) % (width + 200) - 100;
-      line(x, 0, x + 60, height);
+    stroke(255, 0, 51, 30);
+    strokeWeight(4);
+    for (let i = 0; i < 6; i++) {
+      let x = (frameCount * 2 + i * 200) % (width + 200) - 100;
+      line(x, 0, x - 100, height);
+    }
+    fill(255, 0, 51, 100);
+    noStroke();
+    for(let i=0; i<5; i++) {
+      let sx = (width/5)*i + width/10;
+      let sy = height - 100 - sin(frameCount*0.05 + i)*20;
+      beginShape();
+      for(let j=0; j<5; j++) {
+        let a = -PI/2 + (TWO_PI/5)*j;
+        vertex(sx + cos(a)*10, sy + sin(a)*10);
+        a += PI/5;
+        vertex(sx + cos(a)*4, sy + sin(a)*4);
+      }
+      endShape(CLOSE);
     }
     pop();
   }
 
+  // Catherine
   if (gameState.currentDimension === 3) {
     push();
     noFill();
-    let offset = frameCount * 0.5;
-    for (let x = -100; x < width + 100; x += 90) {
-      for (let y = -100; y < height + 100; y += 90) {
-        let alpha = 20 + sin(frameCount * 0.02 + x * 0.01 + y * 0.01) * 15;
-        stroke(255, 0, 170, alpha);
-        strokeWeight(1);
+    stroke(255, 0, 170, 30);
+    strokeWeight(2);
+    let offset = frameCount * 1.5;
+    for (let x = -100; x < width + 100; x += 120) {
+      for (let y = -100; y < height + 100; y += 120) {
         push();
-        translate(x + offset % 90, y + offset % 90);
+        translate(x + offset % 120, y + offset % 120);
         rotate(PI / 4);
-        rect(0, 0, 50, 50);
+        rect(0, 0, 60, 60);
         pop();
       }
+    }
+    if (frameCount % 10 === 0) {
+      particles.push({
+        type: 'feather',
+        pos: { x: random(width), y: -20 },
+        vel: { x: random(-1, 1), y: random(1, 2) },
+        life: 300,
+        angle: random(TWO_PI),
+        rotSpeed: random(-0.02, 0.02)
+      });
     }
     pop();
   }
 
+  // Metaphor
   if (gameState.currentDimension === 4) {
     push();
-    for (let i = 0; i < 3; i++) {
-      let r = 400 + sin(frameCount * 0.02 + i) * 30 + i * 100;
-      noFill();
-      stroke(230, 184, 0, 25 - i * 5);
-      strokeWeight(2);
-      drawingContext.setLineDash([15, 15]);
-      ellipse(width / 2, height / 2, r, r);
-      drawingContext.setLineDash([]);
-    }
-    pop();
-    if (frameCount % 25 === 0) {
+    noFill();
+    stroke(230, 184, 0, 20);
+    strokeWeight(3);
+    ellipse(width/2, height/2, 600, 600);
+    ellipse(width/2, height/2, 650, 650);
+    if (frameCount % 15 === 0) {
       particles.push({
         type: 'rune',
-        pos: { x: random(width), y: height + 30 },
-        vel: { x: random(-0.4, 0.4), y: random(-1.2, -0.5) },
-        life: 240,
-        char: random(["✦", "◆", "✧", "◇", "✶", "ᚠ", "ᚢ", "ᚦ", "ᚨ"])
+        pos: { x: random(width), y: height + 20 },
+        vel: { x: random(-0.5, 0.5), y: random(-2, -0.5) },
+        life: 300,
+        char: random(["ᚠ", "ᚢ", "ᚦ", "ᚨ", "ᚱ", "ᚲ", "ᚷ", "ᚹ"])
       });
     }
+    pop();
   }
 }
 
@@ -1809,6 +1882,22 @@ function drawParticles() {
       fill(255, 0, 0, p.life * 6); noStroke();
       text("STATIC...", p.pos.x, p.pos.y); pop();
       p.life--;
+      if (p.life <= 0) particles.splice(i, 1);
+    } else if (p.type === 'ash') {
+      push(); fill(0, 255, 100, p.life); noStroke();
+      ellipse(p.pos.x, p.pos.y, 3, 3); pop();
+      p.pos.x += p.vel.x; p.pos.y += p.vel.y; p.life--;
+      if (p.life <= 0) particles.splice(i, 1);
+    } else if (p.type === 'feather') {
+      push();
+      translate(p.pos.x, p.pos.y);
+      p.angle += p.rotSpeed;
+      rotate(p.angle);
+      fill(255, 0, 170, p.life * 0.5);
+      noStroke();
+      ellipse(0, 0, 15, 5);
+      pop();
+      p.pos.x += p.vel.x; p.pos.y += p.vel.y; p.life--;
       if (p.life <= 0) particles.splice(i, 1);
     }
   }
