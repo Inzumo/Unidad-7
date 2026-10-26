@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;900&family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;900&family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@700&family=Bebas+Neue&family=Cinzel:wght@600;900&display=swap');
 
 * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
 
@@ -464,3 +464,74 @@ body.cursor-p4 { cursor: cell; }
 body.cursor-p5 { cursor: pointer; }
 body.cursor-catherine { cursor: move; }
 body.cursor-metaphor { cursor: pointer; }
+
+/* ATLUS · theme.css — cárgalo DESPUÉS de styles.css */
+
+:root { --c: #ff0033; --ui-font: 'Montserrat', sans-serif; }
+
+/* Viñeta + grano sobre el canvas, teñidos por el mundo activo */
+body::after {
+  content: ''; position: fixed; inset: 0; z-index: 40; pointer-events: none;
+  background:
+    radial-gradient(ellipse at center, transparent 55%, color-mix(in srgb, var(--c) 22%, #000) 130%),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.015) 0 1px, transparent 1px 3px);
+  transition: background .8s ease;
+}
+
+/* Tarjetas de selección: cada una con su color */
+.world-card { --c: #fff; }
+.world-card .world-symbol { color: var(--c); }
+.world-card:hover { border-color: var(--c); box-shadow: 0 30px 60px rgba(0,0,0,.7), 0 0 50px color-mix(in srgb, var(--c) 45%, transparent); }
+.world-card::before {
+  content: ''; position: absolute; inset: 0; opacity: 0; transition: opacity .4s;
+  background: radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--c) 28%, transparent), transparent 70%);
+}
+.world-card:hover::before { opacity: 1; }
+.world-card:hover .world-sub { color: var(--c); }
+
+/* HUD con el color del mundo */
+#goal-panel { border-left-color: var(--c); box-shadow: -8px 0 40px -12px var(--c); font-family: var(--ui-font); }
+#goal-panel h2 { font-family: var(--ui-font); }
+#world-badge { border-color: color-mix(in srgb, var(--c) 60%, transparent); box-shadow: 0 0 30px -8px var(--c); }
+#world-badge-num { color: var(--c); }
+#world-signature { filter: drop-shadow(0 0 12px var(--c)); animation: sigFloat 4s ease-in-out infinite alternate; }
+@keyframes sigFloat { to { transform: translateY(-8px) rotate(4deg); } }
+
+#brand-bar { position: absolute; top: 84px; left: 30px; z-index: 55; }
+.brand-letter { font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 1.6rem; letter-spacing: 6px; color: #333; transition: all .6s; }
+.brand-letter.found { color: #ffcc00; text-shadow: 0 0 14px #ffcc00; }
+#brand-sub { font: 700 .55rem 'JetBrains Mono', monospace; letter-spacing: 4px; color: #555; }
+#brand-bar.complete .brand-letter { animation: pulseWord 1.6s ease-in-out infinite alternate; }
+@keyframes pulseWord { to { text-shadow: 0 0 28px #ffcc00, 0 0 60px #ff0033; } }
+
+/* ── Identidad tipográfica y de UI por mundo ── */
+body[data-world="0"] { --ui-font: 'Space Grotesk', sans-serif; }
+body[data-world="0"] #goal-panel { border-radius: 2px 14px 14px 2px; background: rgba(2,10,22,.85); }
+body[data-world="0"] #goal-panel h2 { letter-spacing: 6px; font-weight: 700; }
+
+body[data-world="1"] { --ui-font: 'JetBrains Mono', monospace; }
+body[data-world="1"] #goal-panel { border-radius: 0; border: 2px solid var(--c); background: rgba(20,16,0,.9); }
+body[data-world="1"] #goal-panel h2 { font-weight: 700; }
+
+body[data-world="2"] { --ui-font: 'Bebas Neue', sans-serif; }
+body[data-world="2"] #goal-panel { border-radius: 0; background: #0a0004; transform: skewX(-6deg); border-left-width: 10px; }
+body[data-world="2"] #goal-panel > * { transform: skewX(6deg); }
+body[data-world="2"] #goal-panel h2 { font-size: 1.7rem; letter-spacing: 3px; font-weight: 400; }
+body[data-world="2"] #goal-panel p { font-family: 'Space Grotesk', sans-serif; }
+
+body[data-world="3"] { --ui-font: 'Cinzel', serif; }
+body[data-world="3"] #goal-panel { background: rgba(20,0,14,.85); border-radius: 28px 6px 28px 6px; border: 1px solid var(--c); }
+body[data-world="3"] #goal-panel h2 { letter-spacing: 3px; }
+
+body[data-world="4"] { --ui-font: 'Cinzel', serif; }
+body[data-world="4"] #goal-panel { background: linear-gradient(160deg, rgba(30,24,4,.92), rgba(8,6,2,.92)); border: 1px solid color-mix(in srgb, var(--c) 70%, transparent); border-radius: 4px; }
+body[data-world="4"] #word-bar { border-color: color-mix(in srgb, var(--c) 50%, transparent); }
+
+/* Barra de palabra */
+#word-bar { box-shadow: 0 0 40px -10px var(--c); }
+
+@media (max-width: 1000px) {
+  .world-grid { grid-template-columns: repeat(2, 1fr); }
+  .select-brand h1 { font-size: 3.5rem; letter-spacing: 8px; }
+  #goal-panel { bottom: 150px; max-width: 260px; padding: 14px 16px; }
+}

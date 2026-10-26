@@ -1828,147 +1828,6 @@ function drawHub() {
   pop();
 }
 
-// ==========================================
-// AMBIENTE
-// ==========================================
-function drawAmbientEffects() {
-  let dim = DIMENSIONS[gameState.currentDimension];
-
-  if (gameState.currentDimension === 0) {
-    push();
-    randomSeed(42);
-    for (let i = 0; i < 40; i++) {
-      fill(200, 220, 255, sin(frameCount * 0.02 + i) * 150 + 50);
-      noStroke();
-      ellipse(random(width), random(height), 2, 2);
-    }
-    
-    let pulse = sin(frameCount * 0.02) * 10;
-    noStroke();
-    fill(0, 255, 100, 20);
-    ellipse(width - 200, 200, 350 + pulse, 350 + pulse);
-    fill(100, 255, 150, 50);
-    ellipse(width - 200, 200, 220, 220);
-    fill(150, 255, 180, 200);
-    ellipse(width - 200, 200, 180, 180);
-    fill(0, 0, 0, 100);
-    ellipse(width - 215, 185, 40, 40);
-
-    for(let i=0; i<3; i++) {
-      push();
-      translate(width - 200, 200);
-      rotate(radians(frameCount * (i%2===0?0.5:-0.5)));
-      stroke(0, 255, 100, 50);
-      strokeWeight(1);
-      noFill();
-      ellipse(0, 0, 250 + i*60, 250 + i*60);
-      stroke(0, 255, 100, 100);
-      let a1 = frameCount * 0.05;
-      let a2 = frameCount * 0.01;
-      line(0, 0, cos(a1)*100, sin(a1)*100);
-      line(0, 0, cos(a2)*80, sin(a2)*80);
-      pop();
-    }
-
-    for (let i = 0; i < 3; i++) {
-      let fogY = (frameCount * 0.5 + i * 200) % (height + 400) - 200;
-      fill(0, 255, 100, 8);
-      noStroke();
-      ellipse(width / 2, fogY, width * 1.5, 200);
-    }
-    pop();
-  }
-
-  if (gameState.currentDimension === 1) {
-    push();
-    stroke(0, 0, 0, 40);
-    strokeWeight(2);
-    for (let y = (frameCount * 3) % 10; y < height; y += 10) {
-      line(0, y, width, y);
-    }
-    if (frameCount % 5 === 0) {
-      fill(255, 255, 255, 30);
-      noStroke();
-      rect(random(width), random(height), random(20, 100), 2);
-    }
-    fill(255, 204, 0, 5);
-    noStroke();
-    ellipse(width/2, height/2, width, height);
-    pop();
-  }
-
-  if (gameState.currentDimension === 2) {
-    push();
-    stroke(255, 0, 51, 30);
-    strokeWeight(4);
-    for (let i = 0; i < 6; i++) {
-      let x = (frameCount * 2 + i * 200) % (width + 200) - 100;
-      line(x, 0, x - 100, height);
-    }
-    fill(255, 0, 51, 100);
-    noStroke();
-    for(let i=0; i<5; i++) {
-      let sx = (width/5)*i + width/10;
-      let sy = height - 100 - sin(frameCount*0.05 + i)*20;
-      beginShape();
-      for(let j=0; j<5; j++) {
-        let a = -PI/2 + (TWO_PI/5)*j;
-        vertex(sx + cos(a)*10, sy + sin(a)*10);
-        a += PI/5;
-        vertex(sx + cos(a)*4, sy + sin(a)*4);
-      }
-      endShape(CLOSE);
-    }
-    pop();
-  }
-
-  if (gameState.currentDimension === 3) {
-    push();
-    noFill();
-    stroke(255, 0, 170, 30);
-    strokeWeight(2);
-    let offset = frameCount * 1.5;
-    for (let x = -100; x < width + 100; x += 120) {
-      for (let y = -100; y < height + 100; y += 120) {
-        push();
-        translate(x + offset % 120, y + offset % 120);
-        rotate(PI / 4);
-        rect(0, 0, 60, 60);
-        pop();
-      }
-    }
-    if (frameCount % 10 === 0) {
-      particles.push({
-        type: 'feather',
-        pos: { x: random(width), y: -20 },
-        vel: { x: random(-1, 1), y: random(1, 2) },
-        life: 300,
-        angle: random(TWO_PI),
-        rotSpeed: random(-0.02, 0.02)
-      });
-    }
-    pop();
-  }
-
-  if (gameState.currentDimension === 4) {
-    push();
-    noFill();
-    stroke(230, 184, 0, 20);
-    strokeWeight(3);
-    ellipse(width/2, height/2, 600, 600);
-    ellipse(width/2, height/2, 650, 650);
-    if (frameCount % 15 === 0) {
-      particles.push({
-        type: 'rune',
-        pos: { x: random(width), y: height + 20 },
-        vel: { x: random(-0.5, 0.5), y: random(-2, -0.5) },
-        life: 300,
-        char: random(["ᚠ", "ᚢ", "ᚦ", "ᚨ", "ᚱ", "ᚲ", "ᚷ", "ᚹ"])
-      });
-    }
-    pop();
-  }
-}
 
 // ==========================================
 // PARTÍCULAS
@@ -2175,4 +2034,124 @@ function windowResized() {
   if (gameState.currentDimension === 1 && gameState.started) setupTVs();
   if (gameState.currentDimension === 2 && gameState.started) buildMementosLabyrinth();
   if (gameState.currentDimension === 3 && gameState.started) initCatherine();
+}
+
+// ATLUS · atmosphere.js — cárgalo DESPUÉS de main.js
+// Sobrescribe drawAmbientEffects() con una atmósfera propia por mundo
+// y engancha el tema visual (colores CSS) al cambiar de mundo.
+
+const hr = (i) => { const x = Math.sin(i * 127.1) * 43758.5453; return x - Math.floor(x); };
+const grad = (x0, y0, x1, y1, stops) => {
+  const g = drawingContext.createLinearGradient(x0, y0, x1, y1);
+  stops.forEach(([o, c]) => g.addColorStop(o, c));
+  return g;
+};
+const glow = (x, y, r, rgb, a) => {
+  const g = drawingContext.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, `rgba(${rgb},${a})`); g.addColorStop(1, `rgba(${rgb},0)`);
+  drawingContext.fillStyle = g; noStroke(); rect(x - r, y - r, r * 2, r * 2);
+};
+
+// ---------- Tema: color CSS + data-world + color por tarjeta ----------
+const _applyDimension = applyDimension;
+applyDimension = function (i) {
+  _applyDimension(i);
+  document.body.dataset.world = i;
+  document.documentElement.style.setProperty('--c', DIMENSIONS[i].color);
+};
+const _goToHub = goToHub;
+goToHub = function () {
+  _goToHub();
+  document.body.dataset.world = 'hub';
+  document.documentElement.style.setProperty('--c', '#ffcc00');
+};
+document.querySelectorAll('.world-card').forEach((c) =>
+  c.style.setProperty('--c', DIMENSIONS[+c.dataset.dim].color));
+
+// ---------- Atmósferas ----------
+function drawAmbientEffects() {
+  const w = width, h = height, t = frameCount;
+  const d = gameState.currentDimension;
+  push(); noStroke();
+
+  if (d === 0) { // P3 · The Dark Hour: luna verde, reloj, ataúdes, niebla
+    drawingContext.fillStyle = grad(0, 0, 0, h, [[0, '#021a14'], [0.6, '#050b14'], [1, '#000']]);
+    rect(0, 0, w, h);
+    for (let i = 0; i < 70; i++) {
+      fill(200, 255, 230, 60 + 120 * abs(sin(t * 0.02 + i)));
+      ellipse(hr(i) * w, hr(i + 99) * h * 0.7, 2, 2);
+    }
+    const mx = w - 200, my = 200;
+    glow(mx, my, 330 + sin(t * 0.02) * 12, '0,255,120', 0.35);
+    fill(170, 255, 200); ellipse(mx, my, 170, 170);
+    fill(90, 200, 140, 120); ellipse(mx - 30, my - 20, 40, 40); ellipse(mx + 35, my + 25, 26, 26);
+    push(); translate(mx, my); noFill(); stroke(0, 255, 120, 70); strokeWeight(2);
+    ellipse(0, 0, 300, 300);
+    for (let k = 0; k < 12; k++) { // reloj de las 12 (hora oscura)
+      const a = k * TWO_PI / 12;
+      line(cos(a) * 140, sin(a) * 140, cos(a) * 152, sin(a) * 152);
+    }
+    rotate(t * 0.004); line(0, 0, 0, -120); pop();
+    for (let i = 0; i < 9; i++) { // ataúdes
+      const x = (i + 0.5) * w / 9, bh = 90 + hr(i) * 60;
+      fill(2, 8, 10); beginShape();
+      vertex(x - 18, h); vertex(x - 26, h - bh * 0.7); vertex(x - 12, h - bh);
+      vertex(x + 12, h - bh); vertex(x + 26, h - bh * 0.7); vertex(x + 18, h); endShape(CLOSE);
+    }
+    for (let i = 0; i < 3; i++) { glow(w / 2 + sin(t * 0.005 + i) * 200, h - 120 - i * 90, 380, '0,255,120', 0.06); }
+  }
+
+  if (d === 1) { // P4 · TV World: niebla dorada, ruido de TV, líneas
+    drawingContext.fillStyle = grad(0, 0, w, h, [[0, '#2a2400'], [1, '#0e0b00']]);
+    rect(0, 0, w, h);
+    for (let i = 0; i < 6; i++) glow((hr(i) * w + t * (0.3 + i * 0.1)) % (w + 400) - 200, hr(i + 9) * h, 360, '255,230,120', 0.1);
+    stroke(255, 204, 0, 22); strokeWeight(1);
+    for (let y = (t * 3) % 8; y < h; y += 8) line(0, y, w, y);
+    noStroke();
+    for (let i = 0; i < 90; i++) { fill(255, 255, 220, hr(i + t * 0.7) * 40); rect(hr(i * 3 + t) * w, hr(i * 5 + t) * h, 3, 2); }
+    fill(255, 204, 0, 8); textFont('Montserrat'); textAlign(CENTER, CENTER); textSize(min(w, h) * 0.9);
+    text('?', w / 2, h / 2);
+    if (t % 140 < 6) { fill(255, 255, 255, 14); rect(0, hr(t) * h, w, 40); } // glitch
+  }
+
+  if (d === 2) { // P5 · Metaverse: rayos rojo/negro, estrellas de carta de presentación
+    background(8, 0, 4);
+    push(); translate(w / 2, h / 2); rotate(t * 0.002);
+    const n = 24, R = max(w, h);
+    for (let k = 0; k < n; k += 2) {
+      fill(170, 0, 25, 70);
+      triangle(0, 0, cos(k * TWO_PI / n) * R, sin(k * TWO_PI / n) * R, cos((k + 1) * TWO_PI / n) * R, sin((k + 1) * TWO_PI / n) * R);
+    }
+    pop();
+    glow(w / 2, h / 2, max(w, h) * 0.5, '0,0,0', 0.7);
+    for (let i = 0; i < 14; i++) {
+      const x = hr(i) * w, y = (hr(i + 7) * h + t * (0.4 + hr(i + 3))) % h, s = 8 + hr(i + 1) * 14;
+      fill(255, 255, 255, 90); push(); translate(x, y); rotate(t * 0.01 * (i % 2 ? 1 : -1));
+      beginShape(); for (let j = 0; j < 10; j++) { const a = -HALF_PI + j * PI / 5, r = j % 2 ? s * 0.4 : s; vertex(cos(a) * r, sin(a) * r); } endShape(CLOSE); pop();
+    }
+    fill(255, 0, 51, 150); rect(0, h - 14, w, 14); fill(0); for (let x = 0; x < w; x += 40) rect(x, h - 14, 20, 14);
+  }
+
+  if (d === 3) { // Catherine: pesadilla, escaleras, nubes de oveja, plumas
+    drawingContext.fillStyle = grad(0, 0, 0, h, [[0, '#1a0030'], [0.55, '#2a0020'], [1, '#08000a']]);
+    rect(0, 0, w, h);
+    for (let i = 0; i < 8; i++) glow(hr(i) * w, (hr(i + 4) * h + t * 0.2 * (i % 3 + 1)) % h, 150, '255,150,220', 0.07); // algodón/oveja
+    fill(255, 0, 170, 14);
+    for (let i = 0; i < 12; i++) { const x = w * 0.1 + i * 55, y = h - i * 38 - 40 + sin(t * 0.02 + i) * 3; rect(x, y, 55, 14); } // escalera
+    push(); translate(w * 0.12, h * 0.2); noFill(); stroke(255, 0, 170, 60); strokeWeight(2);
+    ellipse(0, 0, 120, 120); rotate(t * 0.002); line(0, 0, 0, -48); rotate(t * 0.02); line(0, 0, 0, -34); pop();
+    if (t % 10 === 0) particles.push({ type: 'feather', pos: { x: random(w), y: -20 }, vel: { x: random(-1, 1), y: random(1, 2) }, life: 300, angle: random(TWO_PI), rotSpeed: random(-0.02, 0.02) });
+  }
+
+  if (d === 4) { // Metaphor: amanecer dorado de fantasía, halo, estrellas, runas
+    drawingContext.fillStyle = grad(0, 0, 0, h, [[0, '#1a1400'], [0.5, '#2b2106'], [1, '#07050a']]);
+    rect(0, 0, w, h);
+    glow(w / 2, h / 2, max(w, h) * 0.55, '230,184,0', 0.16 + sin(t * 0.02) * 0.03);
+    push(); translate(w / 2, h / 2 + 30); stroke(230, 184, 0, 20); strokeWeight(2);
+    for (let k = 0; k < 16; k++) { const a = k * TWO_PI / 16 + t * 0.002; line(cos(a) * 260, sin(a) * 260, cos(a) * max(w, h), sin(a) * max(w, h)); }
+    pop(); noStroke();
+    for (let i = 0; i < 60; i++) { fill(255, 235, 160, 40 + 150 * abs(sin(t * 0.03 + i))); const s = 1 + hr(i) * 3; rect(hr(i + 2) * w, hr(i + 8) * h, s, s); }
+    for (let i = 0; i < 10; i++) { const y = h - ((t * (0.5 + hr(i)) + hr(i + 5) * h) % h); glow(hr(i) * w + sin(t * 0.02 + i) * 20, y, 14, '255,200,60', 0.5); } // brasas
+  }
+  pop();
 }
