@@ -535,3 +535,7 @@ body[data-world="4"] #word-bar { border-color: color-mix(in srgb, var(--c) 50%, 
   .select-brand h1 { font-size: 3.5rem; letter-spacing: 8px; }
   #goal-panel { bottom: 150px; max-width: 260px; padding: 14px 16px; }
 }
+
+/* P5: el HUD no debe bloquear el arrastre dentro del laberinto */
+#brand-bar { pointer-events: none; }
+body[data-world="2"] #goal-panel { pointer-events: none; opacity: .35; }

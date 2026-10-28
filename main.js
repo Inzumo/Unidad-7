@@ -323,12 +323,13 @@ function createLetters() {
 
   let x = width / 2, y = height / 2;
   if (gameState.currentDimension === 0) { x = width / 2; y = height / 2; }
-  if (gameState.currentDimension === 2) { x = width * 0.15; y = height * 0.15; }
+  if (gameState.currentDimension === 2) { x = mazeInfo.start.x; y = mazeInfo.start.y; }
 
   let body = Bodies.rectangle(x, y, 60, 80, {
     restitution: 0.6, friction: 0.05, density: 0.002
   });
   body.plugin = { isLetter: true };
+  if (gameState.currentDimension === 2) Body.setInertia(body, Infinity);
   body.collisionFilter = { category: 0x0002, mask: 0xFFFFFFFF };
 
   letters.push(new LetterBody(body, activeChar, gameState.currentDimension));
@@ -656,30 +657,114 @@ function updateP4Hud() {
 // ==========================================
 // P5 — MEMENTOS
 // ==========================================
+let mazeInfo = { start: { x: 100, y: 200 }, open: [], cols: 0, rows: 0, x0: 20, y0: 115, cw: 120, ch: 120, last: 0, hazards: [], flash: 0 };
+
+function mazeRng(seed) {
+  return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+}
+
+function mazeGen(cols, rows, seed) {
+  const N = cols * rows, rnd = mazeRng(seed);
+  // Laberinto perfecto (backtracker): pasillos largos y muchos callejones sin salida
+  const open = Array.from({ length: N }, () => new Set());
+  const seen = new Array(N).fill(false);
+  const stack = [0]; seen[0] = true;
+  while (stack.length) {
+    const c = stack[stack.length - 1], cx = c % cols, cy = Math.floor(c / cols), nb = [];
+    if (cx > 0) nb.push(c - 1); if (cx < cols - 1) nb.push(c + 1);
+    if (cy > 0) nb.push(c - cols); if (cy < rows - 1) nb.push(c + cols);
+    const free = nb.filter(n => !seen[n]);
+    if (!free.length) { stack.pop(); continue; }
+    const n = free[Math.floor(rnd() * free.length)];
+    open[c].add(n); open[n].add(c); seen[n] = true; stack.push(n);
+  }
+
+  // Camino solución (BFS) para colocar sombras patrulleras
+  const par = new Array(N).fill(-1); par[0] = 0; const q = [0];
+  while (q.length) { const c = q.shift(); for (const n of open[c]) if (par[n] < 0) { par[n] = c; q.push(n); } }
+  const path = []; for (let c = N - 1; c !== 0; c = par[c]) path.push(c); path.push(0); path.reverse();
+  return { open, path };
+}
+
 function buildMementosLabyrinth() {
   for (let w of mementosWalls) World.remove(world, w);
   mementosWalls = [];
-  const t = 40; // Paredes gruesas
-  const opts = { isStatic: true, friction: 0.1 };
-  const w = width, h = height;
-  
-  const walls = [
-    Bodies.rectangle(w * 0.35, h * 0.25, w * 0.5, t, opts),
-    Bodies.rectangle(w * 0.10, h * 0.45, t, h * 0.35, opts),
-    Bodies.rectangle(w * 0.65, h * 0.55, w * 0.5, t, opts),
-    Bodies.rectangle(w * 0.90, h * 0.45, t, h * 0.3, opts),
-    Bodies.rectangle(w * 0.35, h * 0.75, w * 0.5, t, opts),
-    Bodies.rectangle(w * 0.10, h * 0.85, t, h * 0.2, opts),
-    Bodies.rectangle(w * 0.55, h * 0.90, w * 0.3, t, opts)
-  ];
-  
-  for (let wall of walls) { 
-    World.add(world, wall); 
-    mementosWalls.push(wall); 
+  const t = 26, opts = { isStatic: true, friction: 0.1 };
+  const x0 = 20, y0 = 115, aw = width - 40, ah = height - y0 - 150;
+  const cols = Math.max(5, Math.floor(aw / 120)), rows = Math.max(3, Math.floor(ah / 120));
+  const cw = aw / cols, ch = ah / rows, N = cols * rows;
+
+  // Probamos varias semillas y nos quedamos con el recorrido más largo
+  let best = null;
+  for (let sd = 0; sd < 60; sd++) { const r = mazeGen(cols, rows, 2026 + sd * 977); if (!best || r.path.length > best.path.length) best = r; }
+  const { open, path } = best;
+
+  // Muros
+  const add = (x, y, w, h) => { const b = Bodies.rectangle(x, y, w, h, opts); World.add(world, b); mementosWalls.push(b); };
+  add(x0 + aw / 2, y0, aw + t, t); add(x0 + aw / 2, y0 + ah, aw + t, t);
+  add(x0, y0 + ah / 2, t, ah + t); add(x0 + aw, y0 + ah / 2, t, ah + t);
+  for (let c = 0; c < N; c++) {
+    const cx = c % cols, cy = Math.floor(c / cols);
+    if (cx < cols - 1 && !open[c].has(c + 1)) add(x0 + (cx + 1) * cw, y0 + (cy + 0.5) * ch, t, ch + t);
+    if (cy < rows - 1 && !open[c].has(c + cols)) add(x0 + (cx + 0.5) * cw, y0 + (cy + 1) * ch, cw + t, t);
   }
+
+  const center = c => ({ x: x0 + (c % cols + 0.5) * cw, y: y0 + (Math.floor(c / cols) + 0.5) * ch });
+  const hz = [];
+  for (const f of [0.28, 0.5, 0.72]) {
+    const i = Math.max(2, Math.min(path.length - 3, Math.floor(path.length * f)));
+    const a = center(path[i]), b = center(path[i + 1]), horiz = Math.abs(b.x - a.x) > 1;
+    const amp = (horiz ? ch : cw) / 2 - t / 2 - 17;
+    hz.push({ mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, ax: horiz ? 0 : amp, ay: horiz ? amp : 0, ph: hz.length * 2.1, x: 0, y: 0 });
+  }
+
+  Object.assign(mazeInfo, { start: center(0), open, cols, rows, x0, y0, cw, ch, last: 0, hazards: hz });
+  escapeZone.x = x0 + (cols - 1) * cw + 12; escapeZone.y = y0 + (rows - 1) * ch + 12;
+  escapeZone.w = cw - 24; escapeZone.h = ch - 24;
+  if (letters.length && gameState.currentDimension === 2) mazeResetLetter(0);
+}
+
+function mazeResetLetter(cell) {
+  const l = letters[0]; if (!l) return;
+  const m = mazeInfo, c = cell, cx = c % m.cols, cy = Math.floor(c / m.cols);
+  mouseConstraint.constraint.bodyB = null; mouseConstraint.body = null;
+  Body.setPosition(l.body, { x: m.x0 + (cx + 0.5) * m.cw, y: m.y0 + (cy + 0.5) * m.ch });
+  Body.setVelocity(l.body, { x: 0, y: 0 }); Body.setAngle(l.body, 0); Body.setAngularVelocity(l.body, 0);
+  m.last = c;
+}
+
+// Sombras patrulleras + guardia anti-atravesar-muros + decoración
+function updateMazeLogic() {
+  const m = mazeInfo, l = letters[0], t = millis() / 1000;
+  for (const h of m.hazards) { const s = Math.sin(t * 2.6 + h.ph); h.x = h.mx + h.ax * s; h.y = h.my + h.ay * s; }
+  if (l) {
+    const p = l.body.position;
+    const col = Math.floor((p.x - m.x0) / m.cw), row = Math.floor((p.y - m.y0) / m.ch);
+    if (col < 0 || row < 0 || col >= m.cols || row >= m.rows) mazeResetLetter(m.last);
+    else {
+      const c = row * m.cols + col;
+      if (c !== m.last) { if (m.open[m.last].has(c)) m.last = c; else mazeResetLetter(m.last); }
+    }
+    for (const h of m.hazards) {
+      const px = Math.max(p.x - 30, Math.min(h.x, p.x + 30)), py = Math.max(p.y - 40, Math.min(h.y, p.y + 40));
+      if (Math.hypot(px - h.x, py - h.y) < 17) { mazeResetLetter(0); m.flash = 18; showNotification("SOMBRA", "Vuelves a la entrada"); break; }
+    }
+  }
+  push();
+  noStroke(); fill(255, 255, 255, 140); textFont('JetBrains Mono'); textAlign(CENTER, CENTER); textSize(11);
+  text('ENTRADA', m.start.x, m.start.y + m.ch / 2 - 14);
+  for (const h of m.hazards) {
+    for (let i = 3; i > 0; i--) { fill(255, 0, 40, 28); ellipse(h.x, h.y, 17 * 2 + i * 14); }
+    fill(10, 0, 4); stroke(255, 0, 51); strokeWeight(2); ellipse(h.x, h.y, 34);
+    noStroke(); fill(255, 230, 0); ellipse(h.x, h.y, 11, 7);
+  }
+  if (m.flash > 0) { fill(255, 0, 40, m.flash * 6); rect(0, 0, width, height); m.flash--; }
+  pop();
 }
 
 function drawMementosWalls() {
+  updateMazeLogic();
   push();
   for (let w of mementosWalls) {
     let wWidth = w.bounds.max.x - w.bounds.min.x;
